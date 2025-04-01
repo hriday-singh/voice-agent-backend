@@ -10,15 +10,15 @@ services:
       - app_data:/app/data
       # Add cache volume for huggingface models
       - huggingface_cache:/home/app/.cache/huggingface
+    # Add DNS configuration
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     environment:
       - SECRET_KEY=${SECRET_KEY}
       - FRONTEND_URL=${FRONTEND_URL}
       - DATA_DIR=/app/data
-      # Turso configuration - remote SQLite database
-      - TURSO_DATABASE_URL=${TURSO_DATABASE_URL}
-      - TURSO_AUTH_TOKEN=${TURSO_AUTH_TOKEN}
-      # Fallback to local SQLite if Turso is not configured
-      - DATABASE_URL=${DATABASE_URL:-sqlite:////app/data/app.db}
+      - DATABASE_URL=${DATABASE_URL}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - SARVAM_API_KEY=${SARVAM_API_KEY}
       - WAVES_API_KEY=${WAVES_API_KEY}

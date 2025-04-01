@@ -1,8 +1,6 @@
 fastapi==0.115.12
 uvicorn==0.34.0
 sqlalchemy==2.0.39
-sqlalchemy-libsql==0.2.0
-libsql-experimental==0.1.13
 pydantic[email]==2.10.6
 python-jose[cryptography]==3.4.0
 passlib==1.7.4

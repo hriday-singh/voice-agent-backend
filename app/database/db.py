@@ -6,11 +6,7 @@ import os
 import stat
 from pathlib import Path
 from dotenv import load_dotenv
-import logging
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("database")
+import sqlite3
 
 load_dotenv()
 
@@ -20,58 +16,40 @@ data_dir.mkdir(exist_ok=True)
 
 # Make sure we use an absolute path
 data_dir = data_dir.absolute()
-logger.info(f"Using data directory: {data_dir}")
+print(f"Using data directory: {data_dir}")
 
 # Set restrictive permissions on data directory (owner only)
 if os.name != 'nt':  # Skip on Windows
     try:
         os.chmod(data_dir, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
     except PermissionError:
-        logger.warning(f"Warning: Could not set permissions on {data_dir}, continuing anyway...")
+        print(f"Warning: Could not set permissions on {data_dir}, continuing anyway...")
 
-# Check for Turso configuration
-TURSO_DATABASE_URL = os.getenv("TURSO_DATABASE_URL")
-TURSO_AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
+# Get database URL from environment variables, or use a secure default
+db_path = data_dir / "app.db"
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{db_path}")
 
-# Get database URL from environment variables
-if TURSO_DATABASE_URL and TURSO_AUTH_TOKEN:
-    # Use Turso SQLite database
-    logger.info("Using Turso SQLite database")
-    db_url = f"sqlite+{TURSO_DATABASE_URL}/?authToken={TURSO_AUTH_TOKEN}&secure=true"
-    DATABASE_URL = db_url
+# Enhanced security for SQLite
+if DATABASE_URL.startswith("sqlite"):
+    # SQLite connection args with improved security and thread handling
+    connect_args = {
+        "check_same_thread": False,  # Allow cross-thread usage
+        "timeout": 30  # Wait up to 30 seconds for locks
+    }
     
-    # Create engine with Turso-specific settings
+    # Create engine with thread-safe settings
     engine = create_engine(
         DATABASE_URL,
-        connect_args={'check_same_thread': False},
+        connect_args=connect_args,
+        poolclass=StaticPool,  # Use static pool for better thread handling
+        # Disable SQL query logging in production
         echo=os.getenv("ENVIRONMENT", "production").lower() == "development"
     )
-else:
-    # Fallback to local SQLite database
-    logger.info("Turso credentials not found, using local SQLite database")
-    db_path = data_dir / "app.db"
-    DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{db_path}")
     
-    # Enhanced security for SQLite
-    if DATABASE_URL.startswith("sqlite"):
-        # SQLite connection args with improved security and thread handling
-        connect_args = {
-            "check_same_thread": False,  # Allow cross-thread usage
-            "timeout": 30  # Wait up to 30 seconds for locks
-        }
-        
-        # Create engine with thread-safe settings
-        engine = create_engine(
-            DATABASE_URL,
-            connect_args=connect_args,
-            poolclass=StaticPool,  # Use static pool for better thread handling
-            # Disable SQL query logging in production
-            echo=os.getenv("ENVIRONMENT", "production").lower() == "development"
-        )
-        
-        # Add security pragmas for SQLite
-        @event.listens_for(engine, "connect")
-        def set_sqlite_pragma(dbapi_connection, connection_record):
+    # Add security pragmas for SQLite
+    @event.listens_for(engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        if isinstance(dbapi_connection, sqlite3.Connection):
             cursor = dbapi_connection.cursor()
             # Enable foreign key constraints
             cursor.execute("PRAGMA foreign_keys=ON")
@@ -86,25 +64,25 @@ else:
             # Temporary files are written to memory
             cursor.execute("PRAGMA temp_store=MEMORY")
             cursor.close()
-                
-        # Set secure permissions on database file after creation
-        if os.name != 'nt':  # Skip on Windows
-            if db_path.exists():
-                try:
-                    os.chmod(db_path, stat.S_IRUSR | stat.S_IWUSR)
-                except PermissionError:
-                    logger.warning(f"Warning: Could not set permissions on {db_path}, continuing anyway...")
-    else:
-        # For PostgreSQL, MySQL, etc.
-        engine = create_engine(
-            DATABASE_URL,
-            pool_size=5,
-            max_overflow=10,
-            pool_timeout=30,
-            pool_recycle=1800,
-            connect_args={"sslmode": "require"} if not DATABASE_URL.startswith("sqlite") else {},
-            echo=os.getenv("ENVIRONMENT", "production").lower() == "development"
-        )
+            
+    # Set secure permissions on database file after creation
+    if os.name != 'nt':  # Skip on Windows
+        if db_path.exists():
+            try:
+                os.chmod(db_path, stat.S_IRUSR | stat.S_IWUSR)
+            except PermissionError:
+                print(f"Warning: Could not set permissions on {db_path}, continuing anyway...")
+else:
+    # For PostgreSQL, MySQL, etc.
+    engine = create_engine(
+        DATABASE_URL,
+        pool_size=5,
+        max_overflow=10,
+        pool_timeout=30,
+        pool_recycle=1800,
+        connect_args={"sslmode": "require"} if not DATABASE_URL.startswith("sqlite") else {},
+        echo=os.getenv("ENVIRONMENT", "production").lower() == "development"
+    )
 
 # Create session factory with thread-safe settings
 SessionLocal = sessionmaker(
@@ -124,8 +102,8 @@ def get_db():
         # Test connection with properly formatted SQL
         db.execute(text("SELECT 1"))
         yield db
-    except Exception as e:
-        logger.error(f"Database connection error: {str(e)}")
+    except Exception:
+        # Log error here if needed
         raise
     finally:
         db.close() 
