@@ -1,0 +1,42 @@
+{
+  "agents": {
+    "realestate": {
+      "name": "MyHome Group Real Estate Agent",
+      "description": "Voice agent for MyHome Group real estate inquiries, property details, and pricing information",
+      "api_path": "/api/voice-agents/realestate",
+      "startup_message": "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>Welcome to MyHome Constructions. How may I help you with your real estate inquiries today?</prosody></speak>",
+      "prompt_file": "app/utils/prompts/realestate_prompt.txt",
+      "enabled": true,
+      "voice_name": "te-IN-Standard-A"
+    },
+    "hospital": {
+      "name": "Yashoda Hospital Agent",
+      "description": "Voice agent for Yashoda Hospital appointment scheduling and inquiries",
+      "api_path": "/api/voice-agents/hospital",
+      "startup_message": "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>Welcome to <say-as interpret-as='spell-out'>Ya</say-as><break time='100ms'/><say-as interpret-as='characters'>sho</say-as>da Hospital. How may I assist you with your appointment or medical inquiry today?</prosody></speak>",
+      "prompt_file": "app/utils/prompts/hospital_prompt.txt",
+      "enabled": true,
+      "voice_name": "hi-IN-Wavenet-E"
+    }
+  },
+  "language_codes": {
+    "english": "en-IN",
+    "hindi": "hi-IN",
+    "telugu": "te-IN",
+    "tamil": "ta-IN"
+  },
+  "model_config": {
+    "name": "claude-3-5-sonnet-20240620",
+    "temperature": 0.5
+  },
+  "audio_options": {
+    "audio_chunk_duration": 0.4,
+    "started_talking_threshold": 0.2,
+    "speech_threshold": 0.3
+  },
+  "default_messages": {
+    "error": "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I apologize, I couldn't understand. Please try again.</prosody></speak>",
+    "unclear_audio": "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I couldn't hear you clearly. Could you please repeat?</prosody></speak>",
+    "unsupported_language": "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>Kindly please repeat.</prosody></speak>"
+  }
+}

@@ -1,0 +1,58 @@
+version: "3.8"
+
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/app/app
+      - app_data:/app/data
+      # Add cache volume for huggingface models
+      - huggingface_cache:/home/app/.cache/huggingface
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - FRONTEND_URL=${FRONTEND_URL}
+      - DATA_DIR=/app/data
+      # Turso configuration - remote SQLite database
+      - TURSO_DATABASE_URL=${TURSO_DATABASE_URL}
+      - TURSO_AUTH_TOKEN=${TURSO_AUTH_TOKEN}
+      # Fallback to local SQLite if Turso is not configured
+      - DATABASE_URL=${DATABASE_URL:-sqlite:////app/data/app.db}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - SARVAM_API_KEY=${SARVAM_API_KEY}
+      - WAVES_API_KEY=${WAVES_API_KEY}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - CLAUDE_API_KEY=${CLAUDE_API_KEY}
+      - HF_HOME=/home/app/.cache/huggingface
+      - TRANSFORMERS_CACHE=/home/app/.cache/huggingface/transformers
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - PORT=8000
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 2G
+        reservations:
+          cpus: "0.25"
+          memory: 512M
+
+volumes:
+  app_data:
+    external: true
+    name: voice_agent_data
+  huggingface_cache:
+    # Named volume for persistent huggingface model cache
