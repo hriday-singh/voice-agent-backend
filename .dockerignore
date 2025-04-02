@@ -35,8 +35,8 @@ docker-compose.yml
 docker-compose.override.yml
 
 # Node.js / React
-voice-agent-portal/node_modules/
 node_modules/
+voice-agent-portal/node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

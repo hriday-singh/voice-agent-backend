@@ -8,55 +8,75 @@ import os
 from dotenv import load_dotenv
 import secrets
 from contextlib import asynccontextmanager
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
 
 # Create a more secure database if SECRET_KEY isn't set
 if not os.getenv("SECRET_KEY"):
-    print("WARNING: No SECRET_KEY found in environment. Generating a random key for this session.")
+    logger.warning("WARNING: No SECRET_KEY found in environment. Generating a random key for this session.")
     os.environ["SECRET_KEY"] = secrets.token_hex(32)
 
 # Debug database connection
 if TURSO_DATABASE_URL:
-    print(f"Using Turso database")
+    logger.info(f"Using Turso database")
 else:
-    print(f"Using local database: {LOCAL_DB_FILE}")
-
-# Create database tables
-ensure_tables()
+    logger.info(f"Using local database: {LOCAL_DB_FILE}")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Initialize database
-    print("Initializing database...")
-    ensure_tables()
-    
-    # Create default admin on startup
-    with get_db() as conn:
-        # Check if admin exists
-        admin = conn.execute(
-            "SELECT * FROM admins WHERE username = ?", 
-            ("cawadmin",)
-        ).fetchone()
+    logger.info("Initializing database...")
+    try:
+        # Sync with remote database at startup if using Turso
+        if TURSO_DATABASE_URL:
+            logger.info("Syncing with remote Turso database...")
+            sync_with_remote()
         
-        if not admin:
-            # Create default admin
-            conn.execute(
-                "INSERT INTO admins (username, password_hash) VALUES (?, ?)",
-                ("cawadmin", get_password_hash("adminc@w"))
-            )
-            print("Created default admin account: username='cawadmin', password='adminc@w'")
-    
-    # Sync with remote database at startup if using Turso
-    if TURSO_DATABASE_URL:
-        print("Syncing with remote Turso database...")
-        sync_with_remote()
+        # Create tables after syncing with remote
+        ensure_tables()
+        logger.info("Database tables created successfully")
+        
+        # Create default admin on startup
+        with get_db() as conn:
+            try:
+                # First try to query the admin
+                logger.info("Checking if admin exists...")
+                admin = conn.execute(
+                    "SELECT * FROM admins WHERE username = ?", 
+                    ("cawadmin",)
+                ).fetchone()
+                
+                if not admin:
+                    # Create default admin
+                    logger.info("Admin not found, creating default admin account...")
+                    conn.execute(
+                        "INSERT INTO admins (username, password_hash) VALUES (?, ?)",
+                        ("cawadmin", get_password_hash("adminc@w"))
+                    )
+                    logger.info("Created default admin account: username='cawadmin', password='adminc@w'")
+                else:
+                    logger.info("Admin account already exists")
+                
+                # Sync changes back to remote
+                if TURSO_DATABASE_URL:
+                    logger.info("Syncing changes back to remote Turso database...")
+                    conn.sync()
+            except Exception as e:
+                logger.error(f"Error with admin account setup: {e}")
+                raise
+    except Exception as e:
+        logger.error(f"Error during database initialization: {e}")
+        raise
     
     yield
     
     # Clean up database connection on shutdown
-    print("Cleaning up database connection...")
+    logger.info("Cleaning up database connection...")
     cleanup_connection()
 
 # Initialize the FastAPI app
@@ -129,4 +149,3 @@ async def health_check():
         "version": "1.0.0",
         "environment": os.getenv("ENVIRONMENT", "production")
     }
-

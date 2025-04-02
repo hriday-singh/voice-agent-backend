@@ -4,11 +4,10 @@ services:
   api:
     build: ./app
     container_name: fastapi-backend
-    expose:
-      - 8000
+    ports:
+      - "8000:8000" # Expose directly for testing
     volumes:
       - ./app:/app/app
-      - app_data:/app/data
       - huggingface_cache:/home/app/.cache/huggingface
     dns:
       - 8.8.8.8
@@ -24,6 +23,8 @@ services:
       - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - CLAUDE_API_KEY=${CLAUDE_API_KEY}
+      - TURSO_DATABASE_URL=${TURSO_DATABASE_URL}
+      - TURSO_AUTH_TOKEN=${TURSO_AUTH_TOKEN}
       - HF_HOME=/home/app/.cache/huggingface
       - TRANSFORMERS_CACHE=/home/app/.cache/huggingface/transformers
       - ENVIRONMENT=${ENVIRONMENT:-production}
@@ -51,6 +52,8 @@ services:
   frontend:
     build: ./voice-agent-portal
     container_name: react-frontend
+    volumes:
+      - frontend_build:/usr/share/nginx/html
     restart: always
 
   nginx:
@@ -61,11 +64,14 @@ services:
       - "80:80"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - frontend_build:/usr/share/nginx/html
     depends_on:
       - api
       - frontend
+
 volumes:
-  app_data:
-    # external: true
-    # name: voice_agent_data
+  # external: true
+  # name: voice_agent_data
   huggingface_cache:
+  frontend_build:

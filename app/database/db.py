@@ -3,6 +3,11 @@ from dotenv import load_dotenv
 import libsql_experimental as libsql
 from contextlib import contextmanager
 import threading
+import stat
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -10,14 +15,30 @@ load_dotenv()
 TURSO_DATABASE_URL = os.getenv("TURSO_DATABASE_URL")
 TURSO_AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
 
+# Set sync interval to 5 minutes (300 seconds)
+SYNC_INTERVAL = 300
+
+# Create data directory if it doesn't exist
+DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")
+os.makedirs(DATA_DIR, exist_ok=True)
+
+# Set broad permissions for the data directory to ensure write access
+try:
+    # Set permissions to readable/writable/executable by everyone
+    # os.chmod(DATA_DIR, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+    logger.info(f"Set permissions for data directory: {DATA_DIR}")
+except Exception as e:
+    logger.warning(f"Warning: Could not set permissions for data directory: {e}")
+
 # For local development or CI/CD environments, can use a local file
-LOCAL_DB_FILE = "app.db"
+LOCAL_DB_FILE = os.path.join(DATA_DIR, "app.db")
+logger.info(f"Database file path: {LOCAL_DB_FILE}")
 
 # Print database connection info
 if TURSO_DATABASE_URL:
-    print(f"Using Turso database: {TURSO_DATABASE_URL}")
+    logger.info(f"Using Turso database: {TURSO_DATABASE_URL}")
 else:
-    print(f"Using local database file: {LOCAL_DB_FILE}")
+    logger.info(f"Using local database file: {LOCAL_DB_FILE}")
 
 # Global shared connection
 _connection = None
@@ -32,21 +53,31 @@ def get_connection():
         with _connection_lock:
             # Double-check inside the lock to avoid race conditions
             if _connection is None:
-                if TURSO_DATABASE_URL and TURSO_AUTH_TOKEN:
-                    # Use Turso with local sync
-                    _connection = libsql.connect(
-                        LOCAL_DB_FILE, 
-                        sync_url=TURSO_DATABASE_URL,
-                        auth_token=TURSO_AUTH_TOKEN
-                    )
-                    try:
-                        # Initial sync with remote database
-                        _connection.sync()
-                    except Exception as e:
-                        print(f"Warning: Could not sync with Turso database: {e}")
-                else:
-                    # Local only for development
-                    _connection = libsql.connect(LOCAL_DB_FILE)
+                try:
+                    if TURSO_DATABASE_URL and TURSO_AUTH_TOKEN:
+                        # Use Turso with local sync and automatic sync every 5 minutes
+                        logger.info(f"Connecting to Turso database with local sync (auto-sync every {SYNC_INTERVAL} seconds)")
+                        _connection = libsql.connect(
+                            LOCAL_DB_FILE, 
+                            sync_url=TURSO_DATABASE_URL,
+                            auth_token=TURSO_AUTH_TOKEN,
+                            sync_interval=SYNC_INTERVAL  # Auto-sync every 5 minutes
+                        )
+                        logger.info(f"Turso connection created: {_connection}")
+                        try:
+                            # Initial sync with remote database
+                            _connection.sync()
+                            logger.info("Initial sync with Turso database successful")
+                        except Exception as e:
+                            logger.warning(f"Warning: Could not sync with Turso database: {e}")
+                    else:
+                        # Local only for development
+                        logger.info("Connecting to local database file only")
+                        _connection = libsql.connect(LOCAL_DB_FILE)
+                        logger.info("Local database initialized successfully")
+                except Exception as e:
+                    logger.error(f"Error connecting to database: {e}")
+                    raise
     
     return _connection
 
@@ -65,9 +96,11 @@ def get_db():
         # Rollback on error
         conn.rollback()
         raise
+    # Don't close the connection as it's shared
 
 def ensure_tables():
     """Create database tables if they don't exist"""
+    logger.info(f"Creating database tables in: {LOCAL_DB_FILE}")
     conn = get_connection()
     
     try:
@@ -79,6 +112,7 @@ def ensure_tables():
                 password_hash TEXT NOT NULL
             )
         """)
+        logger.info("Created admins table")
         
         # OTP table
         conn.execute("""
@@ -92,6 +126,7 @@ def ensure_tables():
                 expires_at TIMESTAMP
             )
         """)
+        logger.info("Created otps table")
         
         # OTP Usage table
         conn.execute("""
@@ -103,6 +138,7 @@ def ensure_tables():
                 FOREIGN KEY (otp_id) REFERENCES otps (id) ON DELETE CASCADE
             )
         """)
+        logger.info("Created otp_usages table")
         
         # Agent Traffic table
         conn.execute("""
@@ -114,15 +150,18 @@ def ensure_tables():
                 is_active BOOLEAN DEFAULT 1
             )
         """)
+        logger.info("Created agent_traffic table")
 
         # Synchronize changes to remote database if using Turso
         if TURSO_DATABASE_URL and TURSO_AUTH_TOKEN:
             conn.sync()
+            logger.info("Synced table creation with remote database")
         
         # Commit changes
         conn.commit()
+        logger.info("All database tables created successfully")
     except Exception as e:
-        print(f"Error creating tables: {e}")
+        logger.error(f"Error creating tables: {e}")
         conn.rollback()
         raise
 
@@ -131,10 +170,19 @@ def sync_with_remote():
     if TURSO_DATABASE_URL and TURSO_AUTH_TOKEN:
         conn = get_connection()
         try:
+            logger.info("Starting sync with remote Turso database...")
             conn.sync()
-            print("Database synchronized with Turso remote server")
+            logger.info("Database synchronized with Turso remote server successfully")
+            
+            # Verify tables exist after sync
+            tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+            table_names = [table[0] for table in tables]
+            logger.info(f"Tables after sync: {table_names}")
+            
+            return True
         except Exception as e:
-            print(f"Error synchronizing with remote database: {e}")
+            logger.error(f"Error synchronizing with remote database: {e}")
+            return False
 
 def cleanup_connection():
     """Clean up the global connection - for application shutdown only"""
@@ -142,5 +190,13 @@ def cleanup_connection():
     
     if _connection is not None:
         with _connection_lock:
+            # Perform a final sync if using Turso
+            if TURSO_DATABASE_URL and TURSO_AUTH_TOKEN:
+                try:
+                    _connection.sync()
+                    logger.info("Final sync completed before shutdown")
+                except Exception as e:
+                    logger.error(f"Error during final sync: {e}")
+            
             _connection = None
-            print("Database connection cleaned up") 
+            logger.info("Database connection cleaned up") 
