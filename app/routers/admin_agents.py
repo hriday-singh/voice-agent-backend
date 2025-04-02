@@ -7,9 +7,8 @@ from app.schemas.schemas import (
 from app.utils.agent_config import get_agent_config, update_agent_config, get_agent_by_id
 from app.utils.prompt_manager import save_prompt_file
 from typing import Dict, Any, List, Optional
-from sqlalchemy.orm import Session
 from app.database.db import get_db
-from app.models.models import OTPUsage, AgentTraffic
+from app.models.models import get_otp_usages, get_agent_traffic
 from datetime import datetime
 import re
 import os
@@ -39,7 +38,6 @@ def validate_agent_id(agent_id: str) -> str:
 # Usage and Traffic endpoints first
 @router.get("/usage", response_model=UsageListResponse)
 async def get_agent_usage(
-    db: Session = Depends(get_db),
     token_data: TokenData = Depends(get_token_data),
     limit: Optional[int] = Query(100, ge=1, le=500, description="Maximum number of records to return"),
     offset: Optional[int] = Query(0, ge=0, description="Number of records to skip")
@@ -53,33 +51,47 @@ async def get_agent_usage(
     """
     check_admin_authorization(token_data)
     
-    # Get total count for pagination
-    total_count = db.query(OTPUsage).count()
-    
-    # Apply pagination
-    usages = db.query(OTPUsage).order_by(OTPUsage.timestamp.desc()).offset(offset).limit(limit).all()
-    
-    # Clean up old records if we have too many (limit to 500)
-    if total_count > 500:
-        # Find the oldest records to delete
-        oldest_records = db.query(OTPUsage).order_by(OTPUsage.timestamp.asc()).limit(total_count - 500).all()
-        for record in oldest_records:
-            db.delete(record)
-        db.commit()
-    
-    return UsageListResponse(
-        data=usages,
-        pagination={
-            "total": total_count if total_count <= 500 else 500,
-            "limit": limit,
-            "offset": offset,
-            "has_more": (offset + limit) < total_count
-        }
-    )
+    with get_db() as conn:
+        # Get usage records with pagination
+        usages, total_count = get_otp_usages(conn, limit=limit, offset=offset)
+        
+        # Convert to response objects
+        usage_responses = [
+            OTPUsageResponse(
+                id=usage['id'],
+                otp_id=usage['otp_id'],
+                agent_type=usage['agent_type'],
+                timestamp=usage['timestamp']
+            ) for usage in usages
+        ]
+        
+        # Clean up old records if we have too many (limit to 500)
+        if total_count > 500:
+            # Delete oldest records
+            conn.execute(
+                """
+                DELETE FROM otp_usages
+                WHERE id IN (
+                    SELECT id FROM otp_usages
+                    ORDER BY timestamp ASC
+                    LIMIT ?
+                )
+                """,
+                (total_count - 500,)
+            )
+        
+        return UsageListResponse(
+            data=usage_responses,
+            pagination={
+                "total": min(total_count, 500),
+                "limit": limit,
+                "offset": offset,
+                "has_more": (offset + limit) < total_count
+            }
+        )
 
 @router.get("/traffic", response_model=TrafficListResponse)
-async def get_agent_traffic(
-    db: Session = Depends(get_db),
+async def get_agent_traffic_endpoint(
     token_data: TokenData = Depends(get_token_data),
     limit: Optional[int] = Query(100, ge=1, le=500, description="Maximum number of records to return"),
     offset: Optional[int] = Query(0, ge=0, description="Number of records to skip")
@@ -93,33 +105,48 @@ async def get_agent_traffic(
     """
     check_admin_authorization(token_data)
     
-    # Get total count for pagination
-    total_count = db.query(AgentTraffic).count()
-    
-    # Apply pagination
-    traffic = db.query(AgentTraffic).offset(offset).limit(limit).all()
-    
-    # Clean up old records if we have too many (limit to 500)
-    if total_count > 500:
-        # Find the oldest records to delete
-        oldest_records = db.query(AgentTraffic).order_by(AgentTraffic.last_activity.asc()).limit(total_count - 500).all()
-        for record in oldest_records:
-            db.delete(record)
-        db.commit()
-    
-    return TrafficListResponse(
-        data=traffic,
-        pagination={
-            "total": total_count if total_count <= 500 else 500,
-            "limit": limit,
-            "offset": offset,
-            "has_more": (offset + limit) < total_count
-        }
-    )
+    with get_db() as conn:
+        # Get traffic records with pagination
+        traffic_data, total_count = get_agent_traffic(conn, limit=limit, offset=offset)
+        
+        # Convert to response objects
+        traffic_responses = [
+            AgentTrafficResponse(
+                id=traffic['id'],
+                agent_type=traffic['agent_type'],
+                session_count=traffic['session_count'],
+                last_activity=traffic['last_activity'],
+                is_active=traffic['is_active']
+            ) for traffic in traffic_data
+        ]
+        
+        # Clean up old records if we have too many (limit to 500)
+        if total_count > 500:
+            # Delete oldest records
+            conn.execute(
+                """
+                DELETE FROM agent_traffic
+                WHERE id IN (
+                    SELECT id FROM agent_traffic
+                    ORDER BY last_activity ASC
+                    LIMIT ?
+                )
+                """,
+                (total_count - 500,)
+            )
+        
+        return TrafficListResponse(
+            data=traffic_responses,
+            pagination={
+                "total": min(total_count, 500),
+                "limit": limit,
+                "offset": offset,
+                "has_more": (offset + limit) < total_count
+            }
+        )
 
 @router.delete("/usage/clear")
 async def clear_agent_usage(
-    db: Session = Depends(get_db),
     token_data: TokenData = Depends(get_token_data)
 ):
     """
@@ -129,21 +156,20 @@ async def clear_agent_usage(
     """
     check_admin_authorization(token_data)
     
-    # Count records before deletion
-    count = db.query(OTPUsage).count()
-    
-    # Delete all records
-    db.query(OTPUsage).delete()
-    db.commit()
-    
-    return {
-        "success": True,
-        "message": f"Successfully cleared {count} usage records"
-    }
+    with get_db() as conn:
+        # Count records before deletion
+        count = conn.execute("SELECT COUNT(*) FROM otp_usages").fetchone()[0]
+        
+        # Delete all records
+        conn.execute("DELETE FROM otp_usages")
+        
+        return {
+            "success": True,
+            "message": f"Successfully cleared {count} usage records"
+        }
 
 @router.delete("/traffic/clear")
 async def clear_agent_traffic(
-    db: Session = Depends(get_db),
     token_data: TokenData = Depends(get_token_data)
 ):
     """
@@ -153,17 +179,17 @@ async def clear_agent_traffic(
     """
     check_admin_authorization(token_data)
     
-    # Count records before deletion
-    count = db.query(AgentTraffic).count()
-    
-    # Delete all records
-    db.query(AgentTraffic).delete()
-    db.commit()
-    
-    return {
-        "success": True,
-        "message": f"Successfully cleared {count} traffic records"
-    }
+    with get_db() as conn:
+        # Count records before deletion
+        count = conn.execute("SELECT COUNT(*) FROM agent_traffic").fetchone()[0]
+        
+        # Delete all records
+        conn.execute("DELETE FROM agent_traffic")
+        
+        return {
+            "success": True,
+            "message": f"Successfully cleared {count} traffic records"
+        }
 
 # CRUD endpoints for agent management
 @router.get("/", response_model=Dict[str, Any])

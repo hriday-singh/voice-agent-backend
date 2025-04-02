@@ -1,0 +1,127 @@
+/* This file is kept intentionally empty.
+   All styles are now managed through Tailwind CSS using utility classes.
+   See App.css and index.css for component styles.
+*/
+
+.audioAgent {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+
+.visualizersContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 240px;
+  width: 100%;
+  padding: 10px;
+  background: transparent;
+  border-radius: 0;
+}
+
+.ballVisualizer {
+  position: relative;
+  width: 240px;
+  height: 240px;
+  margin: 0 auto;
+}
+
+.canvas {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+}
+
+.controls {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  width: 100%;
+  max-width: 500px;
+}
+
+.button {
+  background-color: var(--caw-dark);
+  color: var(--caw-cream);
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.button.secondary {
+  background-color: var(--caw-cream);
+  color: var(--caw-dark);
+}
+
+.button:hover {
+  opacity: 0.9;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.button.mute {
+  background-color: var(--caw-muted-dark);
+  color: var(--caw-cream);
+}
+
+.back-button {
+  margin-top: 10px;
+  background: transparent;
+  border: 1px solid var(--caw-yellow);
+  color: var(--caw-yellow);
+  box-shadow: none;
+}
+
+.back-button:hover {
+  background: var(--caw-yellow);
+  color: var(--caw-dark);
+}
+
+.errorMessage {
+  color: var(--destructive);
+  margin-top: 12px;
+  font-size: 14px;
+  text-align: center;
+}
+
+.connectionInfo {
+  color: var(--muted-foreground);
+  margin-top: 8px;
+  font-size: 12px;
+  text-align: center;
+}
+
+.debug {
+  margin-top: 20px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  background-color: var(--card);
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.debug pre {
+  white-space: pre-wrap;
+  word-break: break-all;
+}

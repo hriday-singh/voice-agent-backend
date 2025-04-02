@@ -1,0 +1,25 @@
+{
+  "short_name": "CAW Voice",
+  "name": "CAW Voice Agent Portal",
+  "icons": [
+    {
+      "src": "caw-gif.gif",
+      "sizes": "192x192",
+      "type": "image/gif"
+    },
+    {
+      "src": "cropped-fav-icon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#140d0c",
+  "background_color": "#f2efe3"
+}

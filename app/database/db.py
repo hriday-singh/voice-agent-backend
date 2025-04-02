@@ -1,109 +1,146 @@
-from sqlalchemy import create_engine, event, text
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 import os
-import stat
-from pathlib import Path
 from dotenv import load_dotenv
-import sqlite3
+import libsql_experimental as libsql
+from contextlib import contextmanager
+import threading
 
 load_dotenv()
 
-# Create a secure data directory
-data_dir = Path(os.getenv("DATA_DIR", "data"))
-data_dir.mkdir(exist_ok=True)
+# Get database credentials from environment variables
+TURSO_DATABASE_URL = os.getenv("TURSO_DATABASE_URL")
+TURSO_AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
 
-# Make sure we use an absolute path
-data_dir = data_dir.absolute()
-print(f"Using data directory: {data_dir}")
+# For local development or CI/CD environments, can use a local file
+LOCAL_DB_FILE = "app.db"
 
-# Set restrictive permissions on data directory (owner only)
-if os.name != 'nt':  # Skip on Windows
-    try:
-        os.chmod(data_dir, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
-    except PermissionError:
-        print(f"Warning: Could not set permissions on {data_dir}, continuing anyway...")
-
-# Get database URL from environment variables, or use a secure default
-db_path = data_dir / "app.db"
-DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{db_path}")
-
-# Enhanced security for SQLite
-if DATABASE_URL.startswith("sqlite"):
-    # SQLite connection args with improved security and thread handling
-    connect_args = {
-        "check_same_thread": False,  # Allow cross-thread usage
-        "timeout": 30  # Wait up to 30 seconds for locks
-    }
-    
-    # Create engine with thread-safe settings
-    engine = create_engine(
-        DATABASE_URL,
-        connect_args=connect_args,
-        poolclass=StaticPool,  # Use static pool for better thread handling
-        # Disable SQL query logging in production
-        echo=os.getenv("ENVIRONMENT", "production").lower() == "development"
-    )
-    
-    # Add security pragmas for SQLite
-    @event.listens_for(engine, "connect")
-    def set_sqlite_pragma(dbapi_connection, connection_record):
-        if isinstance(dbapi_connection, sqlite3.Connection):
-            cursor = dbapi_connection.cursor()
-            # Enable foreign key constraints
-            cursor.execute("PRAGMA foreign_keys=ON")
-            # Enable secure deletion (slower but more secure)
-            cursor.execute("PRAGMA secure_delete=ON")
-            # Disable memory mapping to prevent potential exploits
-            cursor.execute("PRAGMA mmap_size=0")
-            # Use WAL mode for better concurrency
-            cursor.execute("PRAGMA journal_mode=WAL")
-            # Set appropriate synchronous mode for WAL
-            cursor.execute("PRAGMA synchronous=NORMAL")
-            # Temporary files are written to memory
-            cursor.execute("PRAGMA temp_store=MEMORY")
-            cursor.close()
-            
-    # Set secure permissions on database file after creation
-    if os.name != 'nt':  # Skip on Windows
-        if db_path.exists():
-            try:
-                os.chmod(db_path, stat.S_IRUSR | stat.S_IWUSR)
-            except PermissionError:
-                print(f"Warning: Could not set permissions on {db_path}, continuing anyway...")
+# Print database connection info
+if TURSO_DATABASE_URL:
+    print(f"Using Turso database: {TURSO_DATABASE_URL}")
 else:
-    # For PostgreSQL, MySQL, etc.
-    engine = create_engine(
-        DATABASE_URL,
-        pool_size=5,
-        max_overflow=10,
-        pool_timeout=30,
-        pool_recycle=1800,
-        connect_args={"sslmode": "require"} if not DATABASE_URL.startswith("sqlite") else {},
-        echo=os.getenv("ENVIRONMENT", "production").lower() == "development"
-    )
+    print(f"Using local database file: {LOCAL_DB_FILE}")
 
-# Create session factory with thread-safe settings
-SessionLocal = sessionmaker(
-    autocommit=False,
-    autoflush=False,
-    bind=engine,
-    expire_on_commit=True
-)
+# Global shared connection
+_connection = None
+_connection_lock = threading.Lock()
 
-# Base class for models
-Base = declarative_base()
+def get_connection():
+    """Get the shared database connection."""
+    global _connection
+    
+    # Create the connection if it doesn't exist
+    if _connection is None:
+        with _connection_lock:
+            # Double-check inside the lock to avoid race conditions
+            if _connection is None:
+                if TURSO_DATABASE_URL and TURSO_AUTH_TOKEN:
+                    # Use Turso with local sync
+                    _connection = libsql.connect(
+                        LOCAL_DB_FILE, 
+                        sync_url=TURSO_DATABASE_URL,
+                        auth_token=TURSO_AUTH_TOKEN
+                    )
+                    try:
+                        # Initial sync with remote database
+                        _connection.sync()
+                    except Exception as e:
+                        print(f"Warning: Could not sync with Turso database: {e}")
+                else:
+                    # Local only for development
+                    _connection = libsql.connect(LOCAL_DB_FILE)
+    
+    return _connection
 
-# Thread-safe database session dependency
+@contextmanager
 def get_db():
-    db = SessionLocal()
+    """
+    Provides a database connection context manager.
+    Uses a single shared connection for efficiency.
+    """
+    conn = get_connection()
     try:
-        # Test connection with properly formatted SQL
-        db.execute(text("SELECT 1"))
-        yield db
-    except Exception:
-        # Log error here if needed
+        yield conn
+        # Commit any changes when exiting the context without errors
+        conn.commit()
+    except Exception as e:
+        # Rollback on error
+        conn.rollback()
         raise
-    finally:
-        db.close() 
+
+def ensure_tables():
+    """Create database tables if they don't exist"""
+    conn = get_connection()
+    
+    try:
+        # Admin table
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS admins (
+                id INTEGER PRIMARY KEY,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL
+            )
+        """)
+        
+        # OTP table
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS otps (
+                id INTEGER PRIMARY KEY,
+                code TEXT UNIQUE NOT NULL,
+                max_uses INTEGER DEFAULT 5,
+                remaining_uses INTEGER DEFAULT 5,
+                is_used BOOLEAN DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP
+            )
+        """)
+        
+        # OTP Usage table
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS otp_usages (
+                id INTEGER PRIMARY KEY,
+                otp_id INTEGER NOT NULL,
+                agent_type TEXT NOT NULL,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (otp_id) REFERENCES otps (id) ON DELETE CASCADE
+            )
+        """)
+        
+        # Agent Traffic table
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS agent_traffic (
+                id INTEGER PRIMARY KEY,
+                agent_type TEXT NOT NULL,
+                session_count INTEGER DEFAULT 0,
+                last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                is_active BOOLEAN DEFAULT 1
+            )
+        """)
+
+        # Synchronize changes to remote database if using Turso
+        if TURSO_DATABASE_URL and TURSO_AUTH_TOKEN:
+            conn.sync()
+        
+        # Commit changes
+        conn.commit()
+    except Exception as e:
+        print(f"Error creating tables: {e}")
+        conn.rollback()
+        raise
+
+def sync_with_remote():
+    """Sync local database with Turso remote database"""
+    if TURSO_DATABASE_URL and TURSO_AUTH_TOKEN:
+        conn = get_connection()
+        try:
+            conn.sync()
+            print("Database synchronized with Turso remote server")
+        except Exception as e:
+            print(f"Error synchronizing with remote database: {e}")
+
+def cleanup_connection():
+    """Clean up the global connection - for application shutdown only"""
+    global _connection
+    
+    if _connection is not None:
+        with _connection_lock:
+            _connection = None
+            print("Database connection cleaned up") 

@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
-from app.models.models import OTP, OTPUsage, AgentTraffic
+from app.models.models import get_otp_by_code, update_otp_usage, record_otp_usage, record_agent_traffic
 from app.schemas.schemas import TokenData, AgentUsage
 from app.utils.auth import get_token_data
 from app.database.db import get_db
@@ -17,7 +16,6 @@ DEFAULT_LIST_LIMIT = 10
 async def get_available_agents(
     limit: Optional[int] = Query(DEFAULT_LIST_LIMIT, ge=1, le=50, description="Maximum number of agents to return"),
     offset: Optional[int] = Query(0, ge=0, description="Number of agents to skip"),
-    db: Session = Depends(get_db),
     token_data: TokenData = Depends(get_token_data)
 ):
     """
@@ -32,26 +30,27 @@ async def get_available_agents(
     """
     # For OTP users, check if OTP is still valid
     if token_data.user_type == "otp":
-        otp = db.query(OTP).filter(OTP.code == token_data.otp_code).first()
-        if not otp:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid OTP"
-            )
-        
-        # Check if OTP has expired
-        if otp.expires_at and otp.expires_at < datetime.utcnow():
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="OTP has expired"
-            )
-        
-        # Check if OTP is exhausted
-        if otp.is_used or otp.remaining_uses <= 0:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="OTP has been exhausted"
-            )
+        with get_db() as conn:
+            otp = get_otp_by_code(conn, token_data.otp_code)
+            if not otp:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid OTP"
+                )
+            
+            # Check if OTP has expired
+            if otp['expires_at'] and otp['expires_at'] < datetime.utcnow():
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="OTP has expired"
+                )
+            
+            # Check if OTP is exhausted
+            if otp['is_used'] or otp['remaining_uses'] <= 0:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="OTP has been exhausted"
+                )
     
     agents = list_available_agents(include_disabled=False)
     
@@ -81,7 +80,6 @@ async def get_available_agents(
 @router.post("/access", status_code=status.HTTP_200_OK)
 async def access_agent(
     agent_data: AgentUsage,
-    db: Session = Depends(get_db),
     token_data: TokenData = Depends(get_token_data)
 ):
     """
@@ -105,60 +103,42 @@ async def access_agent(
     
     # For OTP users, we need to decrement the remaining uses
     if token_data.user_type == "otp":
-        otp = db.query(OTP).filter(OTP.code == token_data.otp_code).first()
-        
-        if not otp:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid OTP",
-            )
-        
-        # Check if OTP has expired
-        if otp.expires_at and otp.expires_at < datetime.utcnow():
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="OTP has expired",
-            )
-        
-        if otp.is_used or otp.remaining_uses <= 0:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="OTP has been exhausted",
-            )
-        
-        # Decrement remaining uses
-        otp.remaining_uses -= 1
-        if otp.remaining_uses <= 0:
-            otp.is_used = True
+        with get_db() as conn:
+            otp = get_otp_by_code(conn, token_data.otp_code)
             
-        # Record the usage
-        usage = OTPUsage(
-            otp_id=otp.id,
-            agent_type=agent_data.agent_type,
-        )
-        db.add(usage)
-        
-        # Update agent traffic
-        agent_traffic = db.query(AgentTraffic).filter(
-            AgentTraffic.agent_type == agent_data.agent_type
-        ).first()
-        
-        if not agent_traffic:
-            agent_traffic = AgentTraffic(
-                agent_type=agent_data.agent_type,
-                session_count=1,
-                last_activity=datetime.utcnow(),
-                is_active=True
-            )
-            db.add(agent_traffic)
-        else:
-            agent_traffic.session_count += 1
-            agent_traffic.last_activity = datetime.utcnow()
-            agent_traffic.is_active = True
-        
-        db.commit()
+            if not otp:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid OTP",
+                )
+            
+            # Check if OTP has expired
+            if otp['expires_at'] and otp['expires_at'] < datetime.utcnow():
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="OTP has expired",
+                )
+            
+            if otp['is_used'] or otp['remaining_uses'] <= 0:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="OTP has been exhausted",
+                )
+            
+            # Decrement remaining uses
+            update_otp_usage(conn, otp['id'])
+            
+            # Record the usage
+            record_otp_usage(conn, otp['id'], agent_data.agent_type)
+            
+            # Update agent traffic
+            record_agent_traffic(conn, agent_data.agent_type)
+            
+            # Get updated remaining uses
+            updated_otp = get_otp_by_code(conn, token_data.otp_code)
+            remaining_uses = updated_otp['remaining_uses'] if updated_otp else 0
     
     return {
         "message": f"Access granted to {agent_data.agent_type} agent",
-        "remaining_uses": otp.remaining_uses if token_data.user_type == "otp" else None
+        "remaining_uses": remaining_uses if token_data.user_type == "otp" else None
     } 

@@ -1,0 +1,292 @@
+@import url("https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-wix: "Work Sans";
+    --background: #f2efe3;
+    --foreground: #0c0807;
+
+    --card: #ffffff;
+    --card-foreground: #0c0807;
+
+    --popover: #ffffff;
+    --popover-foreground: #0c0807;
+
+    --primary: #0c0807;
+    --primary-foreground: #f2efe3;
+
+    --secondary: #f2efe3;
+    --secondary-foreground: #0c0807;
+
+    --muted: #e7e2d3;
+    --muted-foreground: #6c6c6c;
+
+    --accent: #ffcc33;
+    --accent-foreground: #0c0807;
+
+    --destructive: #c8364a;
+    --destructive-foreground: #f2efe3;
+
+    --border: #e7e2d3;
+    --input: #e7e2d3;
+    --ring: #ffcc33;
+
+    --radius: 0.5rem;
+
+    /* CAW specific colors */
+    --caw-yellow: #ffcc33;
+    --caw-dark: #0c0807;
+    --caw-cream: #f2efe3;
+    --caw-muted-dark: #31261a;
+    --caw-border-dark: #31261a;
+  }
+
+  .dark {
+    --background: #0c0807;
+    --foreground: #f2efe3;
+
+    --card: #1a1310;
+    --card-foreground: #f2efe3;
+
+    --popover: #1a1310;
+    --popover-foreground: #f2efe3;
+
+    --primary: #f2efe3;
+    --primary-foreground: #0c0807;
+
+    --secondary: #31261a;
+    --secondary-foreground: #f2efe3;
+
+    --muted: #31261a;
+    --muted-foreground: #9c9c9c;
+
+    --accent: #ffcc33;
+    --accent-foreground: #0c0807;
+
+    --destructive: #c8364a;
+    --destructive-foreground: #f2efe3;
+
+    --border: #31261a;
+    --input: #31261a;
+    --ring: #ffcc33;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-[#e7e2d3];
+  }
+
+  body {
+    @apply bg-[#f2efe3] text-[#140d0c] font-sans;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    color: #140d0c;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-display font-medium text-[#140d0c];
+  }
+}
+
+@layer components {
+  /* Button styles directly matching CAW's design */
+  .button,
+  button[class*="primary"],
+  button[class*="secondary"],
+  button[class*="accent"],
+  button[class*="destructive"] {
+    @apply inline-flex items-center justify-center px-6 py-3 font-medium rounded-md transition-colors;
+  }
+
+  /* Primary buttons - Dark brown with cream text (like CAW CTA buttons) */
+  .button.primary,
+  button.primary {
+    @apply bg-[#140d0c] text-[#f2efe3] hover:bg-[#140d0c]/90;
+  }
+
+  /* Secondary buttons - Cream with dark text (like CAW secondary buttons) */
+  .button.secondary,
+  button.secondary {
+    @apply bg-[#f2efe3] text-[#140d0c] border border-[#e7e2d3] hover:bg-[#f2efe3]/80;
+  }
+
+  /* Accent buttons - Yellow with dark text (like CAW accent buttons) */
+  .button.accent,
+  button.accent {
+    @apply bg-[#ffcc33] text-[#140d0c] hover:bg-[#ffcc33]/80;
+  }
+
+  /* Destructive buttons - Red with light text */
+  .button.danger,
+  .button.destructive,
+  button.danger,
+  button.destructive {
+    @apply bg-destructive text-destructive-foreground hover:bg-destructive/90;
+  }
+
+  /* Back button - Border only style */
+  .button.back-button {
+    @apply border border-[#140d0c] text-[#140d0c] bg-transparent hover:bg-[#140d0c]/10 px-4 py-2;
+  }
+
+  /* Edit button - Yellow accent style from screenshot */
+  .button.edit,
+  button.edit {
+    @apply bg-[#ffcc33] text-[#140d0c] hover:bg-[#ffcc33]/80;
+  }
+
+  /* Delete button - Red destructive style from screenshot */
+  .button.delete,
+  button.delete {
+    @apply bg-destructive text-destructive-foreground hover:bg-destructive/90;
+  }
+
+  /* Table styles matching CAW */
+  table {
+    @apply w-full border-collapse;
+  }
+
+  thead {
+    @apply bg-muted;
+  }
+
+  th {
+    @apply p-3 text-left font-medium text-[#140d0c];
+  }
+
+  td {
+    @apply p-3 border-t border-[#e7e2d3] text-[#140d0c];
+  }
+
+  /* Card styles matching CAW */
+  .card {
+    @apply bg-card text-[#140d0c] rounded-lg border border-[#e7e2d3] p-6;
+  }
+
+  /* Tab styles matching CAW */
+  .tabs {
+    @apply flex border-b border-[#e7e2d3] mb-6;
+  }
+
+  .tab {
+    @apply px-4 py-2 font-medium text-[#140d0c]/70 border-b-2 border-transparent;
+  }
+
+  .tab.active {
+    @apply text-[#140d0c] border-[#140d0c];
+  }
+
+  /* Form styles */
+  .form-group {
+    @apply mb-4;
+  }
+
+  .form-label {
+    @apply block text-sm font-medium text-[#140d0c] mb-1;
+  }
+
+  .form-input,
+  .form-select,
+  .form-textarea {
+    @apply block w-full px-3 py-2 bg-[#f2efe3] text-[#140d0c] border border-[#e7e2d3] rounded-md focus:outline-none focus:ring-2 focus:ring-[#ffcc33];
+  }
+}
+
+/* Status indicators */
+.status-indicator {
+  @apply px-2 py-1 rounded-md text-xs font-medium;
+}
+
+.status-indicator.active {
+  @apply bg-accent-teal/20 text-accent-teal;
+}
+
+/* Agent configuration specific styles */
+.agent-management {
+  @apply max-w-7xl mx-auto px-4 py-8;
+}
+
+/* CAW-specific classes for direct styling */
+.caw-nav {
+  @apply bg-[#140d0c] text-[#f2efe3];
+}
+
+.caw-accent {
+  @apply text-[#ffcc33];
+}
+
+.caw-accent-bg {
+  @apply bg-[#ffcc33] text-[#140d0c];
+}
+
+.caw-accent-border {
+  @apply border-[#ffcc33];
+}
+
+.caw-button-accent {
+  @apply bg-[#ffcc33] text-[#140d0c] hover:bg-[#ffcc33]/90 transition-colors;
+}
+
+.caw-button-outline {
+  @apply border border-[#ffcc33] text-[#ffcc33] bg-transparent hover:bg-[#ffcc33] hover:text-[#140d0c] transition-colors;
+}
+
+/* Logo fallback handling */
+.animated-logo {
+  display: inline-block;
+  overflow: hidden;
+  position: relative;
+}
+
+.animated-logo img {
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+  transform: translateZ(0); /* Force hardware acceleration */
+  backface-visibility: hidden; /* Reduce flickering */
+  -webkit-transform-style: preserve-3d;
+  transform-style: preserve-3d;
+  animation-iteration-count: infinite; /* Ensure GIFs loop infinitely */
+}
+
+/* Create a subtle pulse animation for GIFs */
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Create a fade-in animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+img[src$=".gif"] {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+img[src$=".svg"] {
+  animation: fadeIn 0.5s ease-in-out;
+}

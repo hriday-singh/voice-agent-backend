@@ -1,8 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, status, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
-from app.database.db import engine, Base, get_db, DATABASE_URL
-from app.models.models import Admin
+from app.database.db import get_db, ensure_tables, TURSO_DATABASE_URL, LOCAL_DB_FILE, sync_with_remote, cleanup_connection
 from app.routers import auth, otp, agents, admin_agents
 from app.utils.agents import realestate_agent, hospital_agent
 from app.utils.auth import get_password_hash, get_token_data
@@ -20,25 +18,46 @@ if not os.getenv("SECRET_KEY"):
     os.environ["SECRET_KEY"] = secrets.token_hex(32)
 
 # Debug database connection
-print(f"Using database URL: {DATABASE_URL}")
+if TURSO_DATABASE_URL:
+    print(f"Using Turso database")
+else:
+    print(f"Using local database: {LOCAL_DB_FILE}")
 
-# Create tables in the database
-Base.metadata.create_all(bind=engine)
+# Create database tables
+ensure_tables()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Initialize database
+    print("Initializing database...")
+    ensure_tables()
+    
     # Create default admin on startup
-    db = next(get_db())
-    admin = db.query(Admin).filter(Admin.username == "cawadmin").first()
-    if not admin:
-        admin = Admin(
-            username="cawadmin",
-            password_hash=get_password_hash("adminc@w")
-        )
-        db.add(admin)
-        db.commit()
-        print("Created default admin account: username='cawadmin', password='adminc@w'")
+    with get_db() as conn:
+        # Check if admin exists
+        admin = conn.execute(
+            "SELECT * FROM admins WHERE username = ?", 
+            ("cawadmin",)
+        ).fetchone()
+        
+        if not admin:
+            # Create default admin
+            conn.execute(
+                "INSERT INTO admins (username, password_hash) VALUES (?, ?)",
+                ("cawadmin", get_password_hash("adminc@w"))
+            )
+            print("Created default admin account: username='cawadmin', password='adminc@w'")
+    
+    # Sync with remote database at startup if using Turso
+    if TURSO_DATABASE_URL:
+        print("Syncing with remote Turso database...")
+        sync_with_remote()
+    
     yield
+    
+    # Clean up database connection on shutdown
+    print("Cleaning up database connection...")
+    cleanup_connection()
 
 # Initialize the FastAPI app
 app = FastAPI(
@@ -54,6 +73,7 @@ app = FastAPI(
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8000",
+    "http://localhost",
     os.getenv("FRONTEND_URL", ""),
 ]
 
@@ -65,7 +85,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    #allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_methods=["*"],
     allow_headers=[
         "Authorization", 
         "Content-Type",

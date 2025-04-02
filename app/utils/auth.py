@@ -9,7 +9,7 @@ from app.schemas.schemas import TokenData
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from app.database.db import get_db
-from app.models.models import OTP
+from app.models.models import get_otp_by_code
 from decouple import config
 
 # Configure JWT
@@ -61,30 +61,29 @@ def get_token_data(token: str = Depends(oauth2_scheme)) -> TokenData:
             if not otp_code:
                 raise credentials_exception
             
-            # Get database session
-            db = next(get_db())
-            
-            # Check if OTP exists and is valid
-            otp = db.query(OTP).filter(OTP.code == otp_code).first()
-            if not otp:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid OTP",
-                )
-            
-            # Check if OTP has expired
-            if otp.expires_at and otp.expires_at < datetime.utcnow():
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="OTP has expired",
-                )
-            
-            # Check if OTP is exhausted
-            if otp.is_used or otp.remaining_uses <= 0:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="OTP has been exhausted",
-                )
+            # Use our Turso connection
+            with get_db() as conn:
+                # Check if OTP exists and is valid
+                otp = get_otp_by_code(conn, otp_code)
+                if not otp:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Invalid OTP",
+                    )
+                
+                # Check if OTP has expired
+                if otp['expires_at'] and otp['expires_at'] < datetime.utcnow():
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="OTP has expired",
+                    )
+                
+                # Check if OTP is exhausted
+                if otp['is_used'] or otp['remaining_uses'] <= 0:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="OTP has been exhausted",
+                    )
             
         # For admin users, we need both user_type and username
         if user_type == "admin" and not username:
@@ -117,30 +116,29 @@ async def get_token_from_query(token: str) -> TokenData:
             if not otp_code:
                 raise credentials_exception
             
-            # Get database session
-            db = next(get_db())
-            
-            # Check if OTP exists and is valid
-            otp = db.query(OTP).filter(OTP.code == otp_code).first()
-            if not otp:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid OTP",
-                )
-            
-            # Check if OTP has expired
-            if otp.expires_at and otp.expires_at < datetime.utcnow():
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="OTP has expired",
-                )
-            
-            # Check if OTP is exhausted
-            if otp.is_used or otp.remaining_uses <= 0:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="OTP has been exhausted",
-                )
+            # Use our Turso connection
+            with get_db() as conn:
+                # Check if OTP exists and is valid
+                otp = get_otp_by_code(conn, otp_code)
+                if not otp:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Invalid OTP",
+                    )
+                
+                # Check if OTP has expired
+                if otp['expires_at'] and otp['expires_at'] < datetime.utcnow():
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="OTP has expired",
+                    )
+                
+                # Check if OTP is exhausted
+                if otp['is_used'] or otp['remaining_uses'] <= 0:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="OTP has been exhausted",
+                    )
             
         # For admin users, we need both user_type and username
         if user_type == "admin" and not username:

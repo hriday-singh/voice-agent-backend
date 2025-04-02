@@ -30,3 +30,4 @@ soundfile==0.12.1
 elevenlabs==1.54.0
 langchain-anthropic==0.3.10
 langgraph==0.2.76
+libsql-experimental==0.0.45

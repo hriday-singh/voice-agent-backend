@@ -2,15 +2,14 @@ version: "3.8"
 
 services:
   api:
-    build: .
-    ports:
-      - "8000:8000"
+    build: ./app
+    container_name: fastapi-backend
+    expose:
+      - 8000
     volumes:
       - ./app:/app/app
       - app_data:/app/data
-      # Add cache volume for huggingface models
       - huggingface_cache:/home/app/.cache/huggingface
-    # Add DNS configuration
     dns:
       - 8.8.8.8
       - 8.8.4.4
@@ -32,7 +31,7 @@ services:
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
+      interval: 10m
       timeout: 10s
       retries: 3
       start_period: 40s
@@ -49,10 +48,24 @@ services:
         reservations:
           cpus: "0.25"
           memory: 512M
+  frontend:
+    build: ./voice-agent-portal
+    container_name: react-frontend
+    restart: always
 
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-proxy
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - api
+      - frontend
 volumes:
   app_data:
-    external: true
-    name: voice_agent_data
+    # external: true
+    # name: voice_agent_data
   huggingface_cache:
-    # Named volume for persistent huggingface model cache
