@@ -15,8 +15,8 @@ load_dotenv()
 TURSO_DATABASE_URL = os.getenv("TURSO_DATABASE_URL")
 TURSO_AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
 
-# Set sync interval to 5 minutes (300 seconds)
-SYNC_INTERVAL = 300
+# Set sync interval to 1 minute (60 seconds)
+SYNC_INTERVAL = 60
 
 # Create data directory if it doesn't exist
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")
@@ -25,7 +25,7 @@ os.makedirs(DATA_DIR, exist_ok=True)
 # Set broad permissions for the data directory to ensure write access
 try:
     # Set permissions to readable/writable/executable by everyone
-    # os.chmod(DATA_DIR, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+    os.chmod(DATA_DIR, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
     logger.info(f"Set permissions for data directory: {DATA_DIR}")
 except Exception as e:
     logger.warning(f"Warning: Could not set permissions for data directory: {e}")
@@ -57,13 +57,14 @@ def get_connection():
                     if TURSO_DATABASE_URL and TURSO_AUTH_TOKEN:
                         # Use Turso with local sync and automatic sync every 5 minutes
                         logger.info(f"Connecting to Turso database with local sync (auto-sync every {SYNC_INTERVAL} seconds)")
-                        _connection = libsql.connect(
-                            LOCAL_DB_FILE, 
-                            sync_url=TURSO_DATABASE_URL,
-                            auth_token=TURSO_AUTH_TOKEN,
-                            sync_interval=SYNC_INTERVAL  # Auto-sync every 5 minutes
-                        )
-                        logger.info(f"Turso connection created: {_connection}")
+                        #_connection = libsql.connect(
+                        #    LOCAL_DB_FILE, 
+                        #    sync_interval=SYNC_INTERVAL,
+                        #    sync_url=TURSO_DATABASE_URL,
+                        #    auth_token=TURSO_AUTH_TOKEN
+                        #)
+                        _connection = libsql.connect(LOCAL_DB_FILE)
+                        logger.info(f"Connection: {_connection}")
                         try:
                             # Initial sync with remote database
                             _connection.sync()
@@ -154,7 +155,7 @@ def ensure_tables():
 
         # Synchronize changes to remote database if using Turso
         if TURSO_DATABASE_URL and TURSO_AUTH_TOKEN:
-            conn.sync()
+            #conn.sync()
             logger.info("Synced table creation with remote database")
         
         # Commit changes
@@ -171,7 +172,7 @@ def sync_with_remote():
         conn = get_connection()
         try:
             logger.info("Starting sync with remote Turso database...")
-            conn.sync()
+            # conn.sync()
             logger.info("Database synchronized with Turso remote server successfully")
             
             # Verify tables exist after sync

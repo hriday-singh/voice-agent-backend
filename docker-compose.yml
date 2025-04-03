@@ -4,11 +4,10 @@ services:
   api:
     build: ./app
     container_name: fastapi-backend
-    ports:
-      - "8000:8000" # Expose directly for testing
     volumes:
       - ./app:/app/app
       - huggingface_cache:/home/app/.cache/huggingface
+    network_mode: "host"
     dns:
       - 8.8.8.8
       - 8.8.4.4
@@ -52,16 +51,15 @@ services:
   frontend:
     build: ./voice-agent-portal
     container_name: react-frontend
+    network_mode: "host"
     volumes:
       - frontend_build:/usr/share/nginx/html
     restart: always
-
   nginx:
     image: nginx:alpine
     container_name: nginx-proxy
     restart: always
-    ports:
-      - "80:80"
+    network_mode: "host"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf

@@ -89,6 +89,6 @@ def process_audio(audio):
 stream = Stream(
     handler=ReplyOnPause(process_audio, algo_options=options, startup_fn=startup),
     modality="audio",
-    mode="send-receive"
-    # max_connections=5  # Allow up to 5 concurrent connections
+    mode="send-receive",
+    concurrency_limit=10
 ) 

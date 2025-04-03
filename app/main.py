@@ -65,7 +65,7 @@ async def lifespan(app: FastAPI):
                 # Sync changes back to remote
                 if TURSO_DATABASE_URL:
                     logger.info("Syncing changes back to remote Turso database...")
-                    conn.sync()
+                    # conn.sync()
             except Exception as e:
                 logger.error(f"Error with admin account setup: {e}")
                 raise

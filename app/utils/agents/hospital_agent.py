@@ -88,5 +88,6 @@ def process_audio(audio):
 stream = Stream(
     handler=ReplyOnPause(process_audio, algo_options=options, startup_fn=startup),
     modality="audio",
-    mode="send-receive"
+    mode="send-receive",
+    concurrency_limit=10
 ) 
