@@ -17,7 +17,7 @@ agent_config = get_agent_by_id("hospital")
 # Initialize models
 stt_model = get_stt_model()
 tts_model = get_tts_model()
-pipeline = Pipeline(openai_api_key=config('OPENAI_API_KEY'), agent_type="hospital")
+pipeline = Pipeline(anthropic_api_key=config('CLAUDE_API_KEY'), agent_type="hospital")
 
 # Set voice name if specified in config
 if agent_config and "voice_name" in agent_config:
@@ -29,7 +29,7 @@ conversation_id = None
 # Configure audio options
 options = AlgoOptions(
     audio_chunk_duration=0.8,  # Using the value from agent_configs.json
-    started_talking_threshold=0.2,
+    started_talking_threshold=0.3,
     speech_threshold=0.7,  # Using the value from agent_configs.json
 )
 

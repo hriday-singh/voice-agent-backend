@@ -21,7 +21,7 @@ if agent_config and "voice_name" in agent_config:
     tts_model.set_voice_name(agent_config["voice_name"])
 
 # Initialize pipeline with agent type
-pipeline = Pipeline(openai_api_key=config('OPENAI_API_KEY'), agent_type="realestate")
+pipeline = Pipeline(anthropic_api_key=config('CLAUDE_API_KEY'), agent_type="realestate")
 
 # Store conversation state
 conversation_id = None

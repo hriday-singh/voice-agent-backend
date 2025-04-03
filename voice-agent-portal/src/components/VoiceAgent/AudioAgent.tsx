@@ -84,9 +84,6 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
           {
             urls: "stun:stun.l.google.com:19302",
           },
-          {
-            urls: "stun:stun1.l.google.com:19302",
-          },
         ],
         iceCandidatePoolSize: 0,
       });
@@ -119,7 +116,7 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
       dataChannel.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
-          console.log("Received message from server:", message);
+          // console.log("Received message from server:", message);
         } catch (e) {
           console.log("Received raw message:", event.data);
         }
