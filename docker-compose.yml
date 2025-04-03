@@ -67,7 +67,6 @@ services:
     depends_on:
       - api
       - frontend
-
 volumes:
   # external: true
   # name: voice_agent_data

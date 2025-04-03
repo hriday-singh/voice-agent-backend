@@ -4,6 +4,12 @@ from app.utils.agent_config import get_agent_by_id
 from decouple import config
 from fastrtc import ReplyOnPause, AlgoOptions, Stream
 from uuid import uuid4
+import logging
+import numpy as np
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 
 # Get agent configuration
 agent_config = get_agent_by_id("hospital")
@@ -11,7 +17,7 @@ agent_config = get_agent_by_id("hospital")
 # Initialize models
 stt_model = get_stt_model()
 tts_model = get_tts_model()
-pipeline = Pipeline(claude_api_key=config('CLAUDE_API_KEY'), agent_type="hospital")
+pipeline = Pipeline(openai_api_key=config('OPENAI_API_KEY'), agent_type="hospital")
 
 # Set voice name if specified in config
 if agent_config and "voice_name" in agent_config:
@@ -22,15 +28,20 @@ conversation_id = None
 
 # Configure audio options
 options = AlgoOptions(
-    audio_chunk_duration=0.4,  # Using the value from agent_configs.json
+    audio_chunk_duration=0.8,  # Using the value from agent_configs.json
     started_talking_threshold=0.2,
-    speech_threshold=0.3,  # Using the value from agent_configs.json
+    speech_threshold=0.7,  # Using the value from agent_configs.json
 )
 
 # Default messages from agent_configs.json
 DEFAULT_STARTUP_MESSAGE = "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>Welcome to <speak><phoneme alphabet='ipa' ph='jəˈʃoːda'>Yashoda</phoneme></speak> Hospital. How may I assist you with your appointment or medical inquiry today?</prosody></speak>"
 
 DEFAULT_ERROR_MESSAGE = "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I apologize, I couldn't understand. Please try again.</prosody></speak>"
+
+# Helper function for empty audio generator
+def empty_audio_iterator():
+    # Create a generator that yields a single empty/silent frame
+    yield (0, np.zeros(1, dtype=np.int16))
 
 # Startup function with error handling
 def startup():
@@ -40,7 +51,8 @@ def startup():
         for chunk in tts_model.generate_audio(text=DEFAULT_STARTUP_MESSAGE):
             yield chunk
     except Exception as e:
-        yield b""
+        logger.error(f"Error in startup: {str(e)}")
+        yield from empty_audio_iterator()
 
 def process_audio(audio):
     global conversation_id
@@ -48,14 +60,16 @@ def process_audio(audio):
     try:
         # Process audio and get transcription and language
         transcript, detected_language = stt_model.process_audio(audio)
+        logger.info(f"Transcript: {transcript}, Detected Language: {detected_language}")
 
         if detected_language == 'unknown' or not transcript:
             try:
                 return tts_model.generate_audio(text="<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I couldn't hear you clearly. Could you please repeat?</prosody></speak>")
             except Exception as e:
-                return b""  # Return empty audio if TTS fails
+                logger.error(f"TTS failed: {str(e)}")
+                return empty_audio_iterator()
 
-        if detected_language not in ['hindi', 'english', 'telugu', 'tamil']:  # Added tamil support as per agent_configs.json
+        if detected_language not in ['hindi', 'english', 'telugu', 'tamil']:
             return tts_model.generate_audio(text="<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>Kindly please repeat.</prosody></speak>")
         
         # Process through pipeline with consistent conversation_id
@@ -76,13 +90,14 @@ def process_audio(audio):
         try:
             return tts_model.generate_audio(response_text)
         except Exception as e:
-            # Fallback to a simple error message
+            logger.error(f"TTS failed: {str(e)}")
             try:
                 return tts_model.generate_audio(text=DEFAULT_ERROR_MESSAGE)
             except:
-                return b""  # Return empty audio if even fallback TTS fails
+                return empty_audio_iterator()
     except Exception as e:
-        return b""  # Return empty audio if TTS fails
+        logger.error(f"Process audio failed: {str(e)}")
+        return empty_audio_iterator()
 
 # Create Stream with ReplyOnPause
 stream = Stream(

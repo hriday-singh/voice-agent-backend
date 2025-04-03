@@ -3,6 +3,7 @@ from typing import Annotated, List, Dict, Any, Literal
 from typing_extensions import TypedDict
 from dotenv import load_dotenv
 from langchain_anthropic import ChatAnthropic
+from langchain_openai import ChatOpenAI
 from langchain.schema import SystemMessage, HumanMessage, AIMessage
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
@@ -19,7 +20,8 @@ LANGUAGE_CODES = get_language_codes()
 
 # Get model configuration from central config
 MODEL_CONFIG = get_model_config()
-MODEL_NAME = MODEL_CONFIG.get("name", "claude-3-5-sonnet-20240620")
+MODEL_NAME = MODEL_CONFIG.get("name", "gpt-4o")
+# MODEL_NAME = MODEL_CONFIG.get("name", "claude-3-5-sonnet-20240620")
 TEMPERATURE = MODEL_CONFIG.get("temperature", 0.5)
 
 class ConversationState(TypedDict):
@@ -89,9 +91,9 @@ def create_agent():
         compiled graph: The compiled agent graph
     """
     # Initialize the LLM with model settings from config
-    llm = ChatAnthropic(
-        model_name=MODEL_NAME,
-        api_key=os.getenv('CLAUDE_API_KEY'),
+    llm = ChatOpenAI(
+        model=MODEL_NAME,
+        api_key=os.getenv('OPENAI_API_KEY'),
         temperature=TEMPERATURE
     )
     
@@ -155,17 +157,17 @@ def create_agent():
 class Pipeline:
     """Main pipeline for handling voice agent conversations"""
     
-    def __init__(self, claude_api_key: str = None, agent_type: AgentType = "realestate"):
+    def __init__(self, openai_api_key: str = None, agent_type: AgentType = "realestate"):
         """Initialize the pipeline
         
         Args:
-            claude_api_key: API key for Claude (optional, defaults to env var)
+            openai_api_key: API key for OpenAI (optional, defaults to env var)
             agent_type: Type of agent to use (realestate or hospital)
         """
-        if claude_api_key:
-            os.environ['CLAUDE_API_KEY'] = claude_api_key
-        elif not os.getenv('CLAUDE_API_KEY'):
-            raise ValueError("Claude API key not provided")
+        if openai_api_key:
+            os.environ['OPENAI_API_KEY'] = openai_api_key
+        elif not os.getenv('OPENAI_API_KEY'):
+            raise ValueError("OpenAI API key not provided")
         
         self.agent_type = agent_type
         self.agent = create_agent()

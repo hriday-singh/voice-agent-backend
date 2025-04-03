@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { VoiceVisualizer } from "./AudioVisualizer";
-import { WebRTCService, ConnectionStatus } from "../../services/webrtc";
 import { BsMicFill, BsMicMuteFill } from "react-icons/bs";
 import { IoArrowBack } from "react-icons/io5";
 import { IconWrapper } from "./IconWrapper";
+import { API_BASE_URL } from "../../config/api";
 import "./AudioAgent.css";
 
 interface AudioAgentProps {
@@ -27,71 +27,43 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const audioRef = useRef<HTMLAudioElement>(null);
-  const webrtcServiceRef = useRef<WebRTCService | null>(null);
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const dataChannelRef = useRef<RTCDataChannel | null>(null);
+  const webrtcIdRef = useRef<string>("");
 
   // Notify parent of connection state changes
   useEffect(() => {
     onConnectionChange?.(isConnected);
   }, [isConnected, onConnectionChange]);
 
-  // Initialize WebRTC service
-  useEffect(() => {
-    const handleStatusChange = (status: ConnectionStatus) => {
-      setIsConnected(status.isConnected);
-      if (status.error) {
-        setErrorMessage(status.error);
-      } else if (status.isConnected) {
-        setErrorMessage("");
-      }
-      setAudioActive(status.isConnected && status.isListening);
-    };
-
-    const handleAgentResponse = (response: string) => {
-      console.log("Agent response:", response);
-    };
-
-    webrtcServiceRef.current = new WebRTCService(
-      handleStatusChange,
-      handleAgentResponse
-    );
-
-    return () => {
-      if (webrtcServiceRef.current) {
-        webrtcServiceRef.current.cleanup();
-      }
-    };
-  }, []);
-
   // Setup microphone
   const setupMicrophone = async () => {
-    if (!webrtcServiceRef.current) return;
-
     try {
-      const success = await webrtcServiceRef.current.setupMicrophone();
+      // Get the stream for our local UI
+      const micStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 16000,
+          channelCount: 1,
+        },
+      });
 
-      if (success) {
-        // Get the input stream from the service for visualization
-        const micStream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true, // Set to true as specified in user's request
-            noiseSuppression: true,
-            autoGainControl: true,
-            sampleRate: 16000,
-            channelCount: 1,
-          },
-        });
-        setStream(micStream);
-        setErrorMessage("");
-      }
+      // Set the local stream for UI purposes
+      setStream(micStream);
+      setErrorMessage("");
+      console.log("Microphone setup successful");
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       setErrorMessage(`Failed to access microphone: ${errorMsg}`);
+      console.error("Microphone setup failed:", errorMsg);
     }
   };
 
   // Connect to voice agent
   const connectToAgent = async () => {
-    if (!webrtcServiceRef.current) return;
+    // Double check we have a microphone stream
     if (!stream) {
       setErrorMessage("Please enable microphone first");
       return;
@@ -101,25 +73,119 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
     setIsConnecting(true);
 
     try {
-      // Make sure WebRTC service has our microphone stream
-      webrtcServiceRef.current.setMicrophoneStream(stream);
+      console.log("Connecting to agent...");
 
-      // Connect to the agent
-      const { stream: remoteStream } = await webrtcServiceRef.current.connect(
-        agentId,
-        apiPath
-      );
+      // Generate a random webrtc ID
+      webrtcIdRef.current = Math.random().toString(36).substring(7);
 
-      // Set up audio output
-      if (audioRef.current && remoteStream) {
-        audioRef.current.srcObject = remoteStream;
-        setOutputStream(remoteStream);
-      }
+      // Create new RTCPeerConnection with STUN servers
+      const pc = new RTCPeerConnection({
+        iceServers: [
+          {
+            urls: "stun:stun.l.google.com:19302",
+          },
+          {
+            urls: "stun:stun1.l.google.com:19302",
+          },
+        ],
+        iceCandidatePoolSize: 0,
+      });
+      peerConnectionRef.current = pc;
 
-      setAudioActive(true);
+      // Add audio tracks to the peer connection
+      stream.getTracks().forEach((track) => {
+        pc.addTrack(track, stream);
+      });
+
+      // Handle incoming tracks (for audio output)
+      pc.addEventListener("track", (evt) => {
+        console.log("Received remote track", evt);
+        if (audioRef.current && audioRef.current.srcObject !== evt.streams[0]) {
+          audioRef.current.srcObject = evt.streams[0];
+          setOutputStream(evt.streams[0]);
+          setAudioActive(true);
+        }
+      });
+
+      // Create data channel for text communication
+      const dataChannel = pc.createDataChannel("text");
+      dataChannelRef.current = dataChannel;
+
+      // Setup data channel handlers
+      dataChannel.onopen = () => {
+        console.log("Data channel opened");
+      };
+
+      dataChannel.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          console.log("Received message from server:", message);
+        } catch (e) {
+          console.log("Received raw message:", event.data);
+        }
+      };
+
+      // Connection state changes
+      pc.onconnectionstatechange = () => {
+        console.log("Connection state:", pc.connectionState);
+        if (pc.connectionState === "connected") {
+          setIsConnected(true);
+          setIsConnecting(false);
+        } else if (
+          pc.connectionState === "disconnected" ||
+          pc.connectionState === "failed" ||
+          pc.connectionState === "closed"
+        ) {
+          setIsConnected(false);
+          setAudioActive(false);
+        }
+      };
+
+      // ICE connection state changes
+      pc.oniceconnectionstatechange = () => {
+        console.log("ICE connection state:", pc.iceConnectionState);
+      };
+
+      // Create initial offer immediately - don't wait for ICE gathering
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      // Construct the full WebRTC endpoint URL
+      const webrtcEndpoint = `${API_BASE_URL}${apiPath}/webrtc/offer`;
+      console.log("Using WebRTC endpoint:", webrtcEndpoint);
+
+      // Send initial offer immediately
+      console.log("Sending initial offer:", pc.localDescription);
+      const response = await fetch(webrtcEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sdp: pc.localDescription?.sdp,
+          type: pc.localDescription?.type,
+          webrtc_id: webrtcIdRef.current,
+          agent_id: agentId,
+        }),
+      });
+
+      // Handle server response
+      const serverResponse = await response.json();
+      console.log("Received server response:", serverResponse);
+      await pc.setRemoteDescription(serverResponse);
+
+      // Don't send ICE candidates separately - they'll be in the SDP
+      // Just collect them locally
+      pc.onicecandidate = ({ candidate }) => {
+        if (candidate) {
+          console.log(
+            "ICE candidate collected (but not sent separately):",
+            candidate
+          );
+        }
+      };
+
       setIsConnecting(false);
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Error connecting:", error);
       const errorMsg =
         error instanceof Error
           ? error.message
@@ -127,13 +193,21 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
       setErrorMessage(errorMsg);
       setAudioActive(false);
       setIsConnecting(false);
+
+      // Clean up failed connection
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+        peerConnectionRef.current = null;
+      }
     }
   };
 
   // Toggle mute
   const toggleMute = () => {
-    if (webrtcServiceRef.current) {
-      webrtcServiceRef.current.toggleMute();
+    if (stream) {
+      stream.getAudioTracks().forEach((track) => {
+        track.enabled = !track.enabled;
+      });
       setIsMuted(!isMuted);
     }
   };
@@ -141,23 +215,84 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
   // Disconnect from voice agent
   const disconnectFromAgent = async () => {
     try {
-      if (webrtcServiceRef.current) {
-        webrtcServiceRef.current.disconnect();
-      }
+      console.log("Disconnecting from voice agent...");
+      setErrorMessage("");
 
-      if (audioRef.current) {
-        audioRef.current.srcObject = null;
-      }
-
-      setOutputStream(null);
+      // First set UI state to prevent user interaction during disconnect
       setIsConnected(false);
       setAudioActive(false);
+      setOutputStream(null);
+
+      // Close the peer connection
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+        peerConnectionRef.current = null;
+      }
+
+      // Close data channel
+      if (dataChannelRef.current) {
+        dataChannelRef.current.close();
+        dataChannelRef.current = null;
+      }
+
+      // Clean up audio element
+      if (audioRef.current) {
+        try {
+          audioRef.current.pause();
+          audioRef.current.srcObject = null;
+        } catch (e) {
+          console.error("Error cleaning up audio element:", e);
+        }
+      }
+
+      console.log("Successfully disconnected from voice agent");
     } catch (error) {
       console.error("Error disconnecting:", error);
+      setErrorMessage("Error during disconnection. Please refresh the page.");
     }
   };
 
-  // Clean up on unmount handled by the useEffect cleanup
+  // Clean up on unmount
+  useEffect(() => {
+    // Ensure proper cleanup on unmount
+    return () => {
+      try {
+        console.log("Component unmounting, cleaning up resources...");
+
+        // Clean up audio element
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.srcObject = null;
+        }
+
+        // Clean up input stream if it exists
+        if (stream) {
+          stream.getTracks().forEach((track) => {
+            try {
+              track.stop();
+              console.log(`Stopped track: ${track.kind}`);
+            } catch (e) {
+              console.error(`Error stopping track ${track.kind}:`, e);
+            }
+          });
+        }
+
+        // Close the peer connection
+        if (peerConnectionRef.current) {
+          peerConnectionRef.current.close();
+        }
+
+        // Close data channel
+        if (dataChannelRef.current) {
+          dataChannelRef.current.close();
+        }
+
+        console.log("Resources cleaned up");
+      } catch (e) {
+        console.error("Error during cleanup:", e);
+      }
+    };
+  }, [stream]);
 
   return (
     <div className="flex flex-col items-center w-[calc(100%-2rem)] max-w-2xl mx-auto p-4">
