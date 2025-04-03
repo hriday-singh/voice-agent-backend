@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { VoiceVisualizer } from "./AudioVisualizer";
-import { connectVoiceAgent, disconnectVoiceAgent } from "../../services/webrtc";
+import { WebRTCService, ConnectionStatus } from "../../services/webrtc";
 import { BsMicFill, BsMicMuteFill } from "react-icons/bs";
 import { IoArrowBack } from "react-icons/io5";
 import { IconWrapper } from "./IconWrapper";
@@ -27,27 +27,62 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const audioRef = useRef<HTMLAudioElement>(null);
-  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const webrtcServiceRef = useRef<WebRTCService | null>(null);
 
   // Notify parent of connection state changes
   useEffect(() => {
     onConnectionChange?.(isConnected);
   }, [isConnected, onConnectionChange]);
 
+  // Initialize WebRTC service
+  useEffect(() => {
+    const handleStatusChange = (status: ConnectionStatus) => {
+      setIsConnected(status.isConnected);
+      if (status.error) {
+        setErrorMessage(status.error);
+      } else if (status.isConnected) {
+        setErrorMessage("");
+      }
+      setAudioActive(status.isConnected && status.isListening);
+    };
+
+    const handleAgentResponse = (response: string) => {
+      console.log("Agent response:", response);
+    };
+
+    webrtcServiceRef.current = new WebRTCService(
+      handleStatusChange,
+      handleAgentResponse
+    );
+
+    return () => {
+      if (webrtcServiceRef.current) {
+        webrtcServiceRef.current.cleanup();
+      }
+    };
+  }, []);
+
   // Setup microphone
   const setupMicrophone = async () => {
+    if (!webrtcServiceRef.current) return;
+
     try {
-      const micStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 16000,
-          channelCount: 1,
-        },
-      });
-      setStream(micStream);
-      setErrorMessage("");
+      const success = await webrtcServiceRef.current.setupMicrophone();
+
+      if (success) {
+        // Get the input stream from the service for visualization
+        const micStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true, // Set to true as specified in user's request
+            noiseSuppression: true,
+            autoGainControl: true,
+            sampleRate: 16000,
+            channelCount: 1,
+          },
+        });
+        setStream(micStream);
+        setErrorMessage("");
+      }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       setErrorMessage(`Failed to access microphone: ${errorMsg}`);
@@ -56,6 +91,7 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
 
   // Connect to voice agent
   const connectToAgent = async () => {
+    if (!webrtcServiceRef.current) return;
     if (!stream) {
       setErrorMessage("Please enable microphone first");
       return;
@@ -65,15 +101,14 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
     setIsConnecting(true);
 
     try {
-      setAudioActive(true);
+      // Make sure WebRTC service has our microphone stream
+      webrtcServiceRef.current.setMicrophoneStream(stream);
 
-      const { pc, stream: remoteStream } = await connectVoiceAgent(
-        stream,
+      // Connect to the agent
+      const { stream: remoteStream } = await webrtcServiceRef.current.connect(
         agentId,
         apiPath
       );
-
-      peerConnectionRef.current = pc;
 
       // Set up audio output
       if (audioRef.current && remoteStream) {
@@ -81,43 +116,7 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
         setOutputStream(remoteStream);
       }
 
-      // Monitor connection state
-      pc.onconnectionstatechange = () => {
-        const state = pc.connectionState;
-
-        if (state === "connected") {
-          setIsConnected(true);
-          setIsConnecting(false);
-          // Ensure microphone is active
-          stream.getAudioTracks().forEach((track) => {
-            track.enabled = !isMuted;
-          });
-        } else if (
-          state === "failed" ||
-          state === "disconnected" ||
-          state === "closed"
-        ) {
-          setIsConnected(false);
-          setAudioActive(false);
-          setErrorMessage("Connection lost. Please try reconnecting.");
-        }
-      };
-
-      // Monitor ICE connection state
-      pc.oniceconnectionstatechange = () => {
-        const state = pc.iceConnectionState;
-
-        if (state === "connected" || state === "completed") {
-          // Double check microphone tracks are enabled
-          stream.getAudioTracks().forEach((track) => {
-            if (!track.enabled && !isMuted) {
-              track.enabled = true;
-            }
-          });
-        }
-      };
-
-      setIsConnected(true);
+      setAudioActive(true);
       setIsConnecting(false);
     } catch (error) {
       console.error("Error:", error);
@@ -133,22 +132,17 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
 
   // Toggle mute
   const toggleMute = () => {
-    if (stream) {
-      const audioTracks = stream.getAudioTracks();
-      const newMuteState = !isMuted;
-      audioTracks.forEach((track) => {
-        track.enabled = !newMuteState;
-      });
-      setIsMuted(newMuteState);
+    if (webrtcServiceRef.current) {
+      webrtcServiceRef.current.toggleMute();
+      setIsMuted(!isMuted);
     }
   };
 
   // Disconnect from voice agent
   const disconnectFromAgent = async () => {
     try {
-      if (peerConnectionRef.current) {
-        await disconnectVoiceAgent(peerConnectionRef.current);
-        peerConnectionRef.current = null;
+      if (webrtcServiceRef.current) {
+        webrtcServiceRef.current.disconnect();
       }
 
       if (audioRef.current) {
@@ -163,17 +157,7 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
     }
   };
 
-  // Clean up on unmount
-  useEffect(() => {
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
-      if (peerConnectionRef.current) {
-        peerConnectionRef.current.close();
-      }
-    };
-  }, [stream]);
+  // Clean up on unmount handled by the useEffect cleanup
 
   return (
     <div className="flex flex-col items-center w-[calc(100%-2rem)] max-w-2xl mx-auto p-4">
@@ -263,6 +247,15 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
             </li>
             <li>For best results, speak clearly and in a quiet environment.</li>
           </ul>
+          <p className="mt-4 text-sm">
+            For any feedback, please contact us at{" "}
+            <a
+              href="mailto:hello@caw.tech"
+              className="text-[#ffcc33] hover:underline"
+            >
+              hello@caw.tech
+            </a>
+          </p>
         </div>
       </div>
       <audio ref={audioRef} autoPlay playsInline style={{ display: "none" }} />

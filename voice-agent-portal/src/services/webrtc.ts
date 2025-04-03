@@ -103,7 +103,7 @@ export class WebRTCService {
       this.apiPath = apiPath;
 
       // Register access to the agent
-      await api.post("/agents/access", { agent_type: agentType });
+      await api.post("/api/agents/access", { agent_type: agentType });
 
       // Generate WebRTC ID
       this.webrtcId = crypto.randomUUID();
