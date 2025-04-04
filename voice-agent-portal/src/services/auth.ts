@@ -58,7 +58,7 @@ export const loginAdmin = async (username: string, password: string) => {
     formData.append("username", username.trim());
     formData.append("password", password.trim());
 
-    const response = await api.post("/api/auth/login/admin", formData, {
+    const response = await api.post("/auth/login/admin", formData, {
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
@@ -84,7 +84,7 @@ export const loginAdmin = async (username: string, password: string) => {
 // OTP login
 export const loginWithOTP = async (otpCode: string) => {
   try {
-    const response = await api.post("/api/otps/login", {
+    const response = await api.post("/otps/login", {
       otp_code: otpCode,
     });
 

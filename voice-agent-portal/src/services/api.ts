@@ -692,7 +692,7 @@ export const getAgentUsage = (
     limit: params.limit?.toString() || "100",
     offset: params.offset?.toString() || "0",
   });
-  return api.get(`/api/admin/agents/usage?${queryParams.toString()}`);
+  return api.get(`/admin/agents/usage?${queryParams.toString()}`);
 };
 
 export const getAgentTraffic = (
@@ -702,15 +702,15 @@ export const getAgentTraffic = (
     limit: params.limit?.toString() || "100",
     offset: params.offset?.toString() || "0",
   });
-  return api.get(`/api/admin/agents/traffic?${queryParams.toString()}`);
+  return api.get(`/admin/agents/traffic?${queryParams.toString()}`);
 };
 
 export const clearAgentUsage = () => {
-  return api.delete("/api/admin/agents/usage/clear");
+  return api.delete("/admin/agents/usage/clear");
 };
 
 export const clearAgentTraffic = () => {
-  return api.delete("/api/admin/agents/traffic/clear");
+  return api.delete("/admin/agents/traffic/clear");
 };
 
 export default api;
