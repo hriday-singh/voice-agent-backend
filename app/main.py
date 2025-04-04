@@ -94,25 +94,19 @@ ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8000",
     "http://localhost",
-    os.getenv("FRONTEND_URL", ""),
+    os.getenv("FRONTEND_URL", "")
 ]
 
 # Filter out empty strings from ALLOWED_ORIGINS
 ALLOWED_ORIGINS = [origin for origin in ALLOWED_ORIGINS if origin]
 
-# Add CORS middleware with strict settings
+# Add CORS middleware with settings for credentials
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=ALLOWED_ORIGINS,  # Must specify exact origins when using credentials
     allow_credentials=True,
-    #allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_methods=["*"],
-    allow_headers=[
-        "Authorization", 
-        "Content-Type",
-        "Access-Control-Allow-Credentials",
-        "Access-Control-Allow-Origin",
-    ],
+    allow_headers=["*"],
     expose_headers=[
         "Authorization",
         "Access-Control-Allow-Credentials",

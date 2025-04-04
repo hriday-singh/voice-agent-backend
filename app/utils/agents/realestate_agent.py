@@ -4,10 +4,6 @@ from app.utils.agent_config import get_agent_by_id
 from decouple import config
 from fastrtc import ReplyOnPause, AlgoOptions, Stream
 from uuid import uuid4
-import logging
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # Get agent configuration
 agent_config = get_agent_by_id("realestate")
@@ -28,9 +24,9 @@ conversation_id = None
 
 # Configure audio options
 options = AlgoOptions(
-    audio_chunk_duration=0.8,  # Using the value from agent_configs.json
+    audio_chunk_duration=0.6,  # Using the value from agent_configs.json
     started_talking_threshold=0.3,
-    speech_threshold=0.7,  # Using the value from agent_configs.json
+    speech_threshold=0.5,
 )
 
 # Default messages
@@ -53,7 +49,6 @@ def process_audio(audio):
     try:
         # Process audio and get transcription and language
         transcript, detected_language = stt_model.process_audio(audio)
-        logger.info(f"Transcript: {transcript}, Detected Language: {detected_language}")
 
         if detected_language == 'unknown' or not transcript:
             try:

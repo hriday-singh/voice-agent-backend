@@ -1,5 +1,8 @@
 import uvicorn
+import os
 
 if __name__ == "__main__":
-    # uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True) 
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000)
+    os.environ["ENVIRONMENT"] = "development"
+    
+    # Start the server with hot reload enabled
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, workers=4)

@@ -75,9 +75,6 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
     try {
       console.log("Connecting to agent...");
 
-      // Generate a random webrtc ID
-      webrtcIdRef.current = Math.random().toString(36).substring(7);
-
       // Create new RTCPeerConnection with STUN servers
       const pc = new RTCPeerConnection({
         iceServers: [
@@ -108,6 +105,52 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
       const dataChannel = pc.createDataChannel("text");
       dataChannelRef.current = dataChannel;
 
+      // Create initial offer
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      // Construct the full WebRTC endpoint URL
+      const webrtcEndpoint = `${API_BASE_URL}${apiPath}/webrtc/offer`;
+      console.log("Using WebRTC endpoint:", webrtcEndpoint);
+
+      // Generate a random webrtc ID
+      webrtcIdRef.current = Math.random().toString(36).substring(7);
+      const webrtc_id = Math.random().toString(36).substring(7);
+
+      // Send ice candidates immediately
+      pc.onicecandidate = ({ candidate }) => {
+        if (candidate) {
+          console.debug("Sending ICE candidate", candidate);
+          fetch(webrtcEndpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              candidate: candidate.toJSON(),
+              webrtc_id: webrtc_id,
+              type: "ice-candidate",
+            }),
+          });
+        }
+      };
+
+      // Send initial offer immediately
+      console.log("Sending initial offer:", pc.localDescription);
+      console.log("Webrtc ID:", webrtc_id);
+      const response = await fetch(webrtcEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sdp: pc.localDescription?.sdp,
+          type: pc.localDescription?.type,
+          webrtc_id: webrtc_id,
+        }),
+      });
+
+      // Handle server response
+      const serverResponse = await response.json();
+      console.log("Received server response:", serverResponse);
+      await pc.setRemoteDescription(serverResponse);
+
       // Setup data channel handlers
       dataChannel.onopen = () => {
         console.log("Data channel opened");
@@ -135,6 +178,7 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
         ) {
           setIsConnected(false);
           setAudioActive(false);
+          setIsConnecting(false);
         }
       };
 
@@ -142,45 +186,6 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
       pc.oniceconnectionstatechange = () => {
         console.log("ICE connection state:", pc.iceConnectionState);
       };
-
-      // Create initial offer immediately - don't wait for ICE gathering
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-
-      // Construct the full WebRTC endpoint URL
-      const webrtcEndpoint = `${API_BASE_URL}${apiPath}/webrtc/offer`;
-      console.log("Using WebRTC endpoint:", webrtcEndpoint);
-
-      // Send initial offer immediately
-      console.log("Sending initial offer:", pc.localDescription);
-      const response = await fetch(webrtcEndpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sdp: pc.localDescription?.sdp,
-          type: pc.localDescription?.type,
-          webrtc_id: webrtcIdRef.current,
-          agent_id: agentId,
-        }),
-      });
-
-      // Handle server response
-      const serverResponse = await response.json();
-      console.log("Received server response:", serverResponse);
-      await pc.setRemoteDescription(serverResponse);
-
-      // Don't send ICE candidates separately - they'll be in the SDP
-      // Just collect them locally
-      pc.onicecandidate = ({ candidate }) => {
-        if (candidate) {
-          console.log(
-            "ICE candidate collected (but not sent separately):",
-            candidate
-          );
-        }
-      };
-
-      setIsConnecting(false);
     } catch (error) {
       console.error("Error connecting:", error);
       const errorMsg =

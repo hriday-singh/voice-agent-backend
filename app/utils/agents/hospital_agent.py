@@ -4,11 +4,7 @@ from app.utils.agent_config import get_agent_by_id
 from decouple import config
 from fastrtc import ReplyOnPause, AlgoOptions, Stream
 from uuid import uuid4
-import logging
 import numpy as np
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 # Get agent configuration
@@ -28,9 +24,9 @@ conversation_id = None
 
 # Configure audio options
 options = AlgoOptions(
-    audio_chunk_duration=0.8,  # Using the value from agent_configs.json
+    audio_chunk_duration=0.6,  # Using the value from agent_configs.json
     started_talking_threshold=0.3,
-    speech_threshold=0.7,  # Using the value from agent_configs.json
+    speech_threshold=0.5,
 )
 
 # Default messages from agent_configs.json
@@ -51,7 +47,6 @@ def startup():
         for chunk in tts_model.generate_audio(text=DEFAULT_STARTUP_MESSAGE):
             yield chunk
     except Exception as e:
-        logger.error(f"Error in startup: {str(e)}")
         yield from empty_audio_iterator()
 
 def process_audio(audio):
@@ -60,13 +55,11 @@ def process_audio(audio):
     try:
         # Process audio and get transcription and language
         transcript, detected_language = stt_model.process_audio(audio)
-        logger.info(f"Transcript: {transcript}, Detected Language: {detected_language}")
 
         if detected_language == 'unknown' or not transcript:
             try:
                 return tts_model.generate_audio(text="<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I couldn't hear you clearly. Could you please repeat?</prosody></speak>")
             except Exception as e:
-                logger.error(f"TTS failed: {str(e)}")
                 return empty_audio_iterator()
 
         if detected_language not in ['hindi', 'english', 'telugu', 'tamil']:
@@ -90,13 +83,11 @@ def process_audio(audio):
         try:
             return tts_model.generate_audio(response_text)
         except Exception as e:
-            logger.error(f"TTS failed: {str(e)}")
             try:
                 return tts_model.generate_audio(text=DEFAULT_ERROR_MESSAGE)
             except:
                 return empty_audio_iterator()
     except Exception as e:
-        logger.error(f"Process audio failed: {str(e)}")
         return empty_audio_iterator()
 
 # Create Stream with ReplyOnPause
