@@ -3,7 +3,7 @@
     "realestate": {
       "name": "MyHome Group Real Estate Agent",
       "description": "Voice agent for MyHome Group real estate inquiries, property details, and pricing information",
-      "api_path": "/api/voice-agents/realestate",
+      "api_path": "/voice-agents/realestate",
       "startup_message": "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>Welcome to MyHome Constructions. How may I help you with your real estate inquiries today?</prosody></speak>",
       "prompt_file": "app/utils/prompts/realestate_prompt.txt",
       "enabled": true,
@@ -12,7 +12,7 @@
     "hospital": {
       "name": "Yashoda Hospital Agent",
       "description": "Voice agent for Yashoda Hospital appointment scheduling and inquiries",
-      "api_path": "/api/voice-agents/hospital",
+      "api_path": "/voice-agents/hospital",
       "startup_message": "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>Welcome to <say-as interpret-as='spell-out'>Ya</say-as><break time='100ms'/><say-as interpret-as='characters'>sho</say-as>da Hospital. How may I assist you with your appointment or medical inquiry today?</prosody></speak>",
       "prompt_file": "app/utils/prompts/hospital_prompt.txt",
       "enabled": true,

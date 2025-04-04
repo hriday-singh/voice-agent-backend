@@ -34,7 +34,7 @@ const AgentSelector: React.FC = () => {
         setAgents(agentsData);
         setLoading(false);
       } catch (err: any) {
-        setError("Failed to load agents. Please try again.");
+        setError("Credits exhausted. Please contact hello@caw.tech");
         setLoading(false);
       }
     };
@@ -50,7 +50,7 @@ const AgentSelector: React.FC = () => {
       // Navigate to the agent page
       navigate(`/agent/${agent.id}`);
     } catch (err: any) {
-      setError("Failed to access agent. Please try again.");
+      setError("Credits exhausted. Please contact hello@caw.tech");
     }
   };
 
@@ -100,12 +100,12 @@ const AgentSelector: React.FC = () => {
             <div className="col-span-2 flex justify-center items-center py-12">
               <div className="bg-red-50 border border-red-200 text-red-600 rounded-md p-6 text-center max-w-md w-full mx-4">
                 <div className="mb-4">{error}</div>
-                <button
-                  onClick={() => window.location.reload()}
+                <a
+                  href="mailto:hello@caw.tech"
                   className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
                 >
-                  Try Again
-                </button>
+                  Contact Support
+                </a>
               </div>
             </div>
           ) : (

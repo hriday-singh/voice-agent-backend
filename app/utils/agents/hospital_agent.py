@@ -29,6 +29,19 @@ options = AlgoOptions(
     speech_threshold=0.5,
 )
 
+rtc_configuration = {
+    "iceServers": [
+        {
+            "urls": [
+                "stun:voice.caw.tech:3478",
+                "turn:voice.caw.tech:3478"
+            ],
+            "username": "cawturnserver",
+            "credential": "servercawturn"
+        }
+    ]
+}
+
 # Default messages from agent_configs.json
 DEFAULT_STARTUP_MESSAGE = "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>Welcome to <speak><phoneme alphabet='ipa' ph='jəˈʃoːda'>Yashoda</phoneme></speak> Hospital. How may I assist you with your appointment or medical inquiry today?</prosody></speak>"
 
@@ -95,5 +108,6 @@ stream = Stream(
     handler=ReplyOnPause(process_audio, algo_options=options, startup_fn=startup),
     modality="audio",
     mode="send-receive",
-    concurrency_limit=10
+    concurrency_limit=10,
+    rtc_configuration=rtc_configuration
 ) 

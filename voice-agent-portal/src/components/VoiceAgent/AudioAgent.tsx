@@ -61,6 +61,8 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
 
   // Connect to voice agent
   const connectToAgent = async () => {
+    if (isConnecting || isConnected) return;
+
     // Double check we have a microphone stream
     if (!stream) {
       setErrorMessage("Please enable microphone first");
@@ -71,15 +73,21 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
     setIsConnecting(true);
 
     try {
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+        peerConnectionRef.current = null;
+      }
+
       // Create new RTCPeerConnection with STUN servers
-      const pc = new RTCPeerConnection({
-        iceServers: [
-          {
-            urls: "stun:stun.l.google.com:19302",
-          },
-        ],
-        iceCandidatePoolSize: 0,
-      });
+      // const pc = new RTCPeerConnection({
+      //   iceServers: [
+      //     {
+      //       urls: "stun:stun.l.google.com:19302",
+      //    },
+      //  ],
+      //   iceCandidatePoolSize: 0,
+      // });
+      const pc = new RTCPeerConnection();
       peerConnectionRef.current = pc;
 
       // Add audio tracks to the peer connection
@@ -108,22 +116,34 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
       const webrtcEndpoint = `${API_BASE_URL}${apiPath}/webrtc/offer`;
 
       // Generate a random webrtc ID
-      webrtcIdRef.current = Math.random().toString(36).substring(7);
       const webrtc_id = Math.random().toString(36).substring(7);
 
       // Send ice candidates immediately
+      const iceCandidateQueue: RTCIceCandidate[] = [];
+      let remoteSet = false;
+
       pc.onicecandidate = ({ candidate }) => {
         if (candidate) {
-          fetch(webrtcEndpoint, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              candidate: candidate.toJSON(),
-              webrtc_id: webrtc_id,
-              type: "ice-candidate",
-            }),
-          });
+          if (!remoteSet) {
+            // Queue until remote SDP is set
+            iceCandidateQueue.push(candidate);
+          } else {
+            // Send immediately
+            sendIceCandidate(candidate);
+          }
         }
+      };
+
+      const sendIceCandidate = (candidate: RTCIceCandidate) => {
+        fetch(webrtcEndpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            candidate: candidate.toJSON(),
+            webrtc_id: webrtc_id,
+            type: "ice-candidate",
+          }),
+        });
       };
 
       const response = await fetch(webrtcEndpoint, {
@@ -139,20 +159,26 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
       // Handle server response
       const serverResponse = await response.json();
       await pc.setRemoteDescription(serverResponse);
+      remoteSet = true;
+      console.log("Server response:", serverResponse);
+      console.log("Sending queued ICE candidates");
+      // Send queued ICE candidates now
+      iceCandidateQueue.forEach(sendIceCandidate);
+      iceCandidateQueue.length = 0;
 
       // Setup data channel handlers
-      // dataChannel.onopen = () => {
-      //   console.log("Data channel opened");
-      // };
+      dataChannel.onopen = () => {
+        console.log("Data channel opened");
+      };
 
-      // dataChannel.onmessage = (event) => {
-      //   try {
-      //     const message = JSON.parse(event.data);
-      //     console.log("Received message from server:", message);
-      //   } catch (e) {
-      //     console.log("Received raw message:", event.data);
-      //   }
-      // };
+      dataChannel.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          // console.log("Received message from server:", message);
+        } catch (e) {
+          console.log("Received raw message:", event.data);
+        }
+      };
 
       // Connection state changes
       pc.onconnectionstatechange = () => {
@@ -171,15 +197,12 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
       };
 
       // ICE connection state changes
-      // pc.oniceconnectionstatechange = () => {
-      //   console.log("ICE connection state:", pc.iceConnectionState);
-      // };
+      pc.oniceconnectionstatechange = () => {
+        console.log("ICE connection state:", pc.iceConnectionState);
+      };
     } catch (error) {
       console.error("Error connecting:", error);
-      const errorMsg =
-        error instanceof Error
-          ? error.message
-          : "Failed to connect to voice agent";
+      const errorMsg = "Credits exhausted. Please contact hello@caw.tech";
       setErrorMessage(errorMsg);
       setAudioActive(false);
       setIsConnecting(false);
@@ -223,6 +246,8 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
         dataChannelRef.current.close();
         dataChannelRef.current = null;
       }
+
+      webrtcIdRef.current = "";
 
       // Clean up audio element
       if (audioRef.current) {

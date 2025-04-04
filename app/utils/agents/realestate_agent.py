@@ -29,6 +29,19 @@ options = AlgoOptions(
     speech_threshold=0.5,
 )
 
+rtc_configuration = {
+    "iceServers": [
+        {
+            "urls": [
+                "stun:voice.caw.tech:3478",
+                "turn:voice.caw.tech:3478"
+            ],
+            "username": "cawturnserver",
+            "credential": "servercawturn"
+        }
+    ]
+}
+
 # Default messages
 DEFAULT_STARTUP_MESSAGE = "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>Welcome to MyHome Constructions. How may I help you with your real estate inquiries today?</prosody></speak>"
 DEFAULT_ERROR_MESSAGE = "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I apologize, I couldn't understand. Please try again.</prosody></speak>"
@@ -90,5 +103,6 @@ stream = Stream(
     handler=ReplyOnPause(process_audio, algo_options=options, startup_fn=startup),
     modality="audio",
     mode="send-receive",
-    concurrency_limit=10
+    concurrency_limit=10,
+    rtc_configuration=rtc_configuration
 ) 

@@ -31,7 +31,9 @@ const OTPLogin: React.FC<OTPLoginProps> = ({ onLoginSuccess }) => {
     if (result.success) {
       onLoginSuccess();
     } else {
-      setError(result.error || "Invalid OTP");
+      setError(
+        "Invalid OTP or credits exhausted. Please contact hello@caw.tech"
+      );
     }
   };
 
