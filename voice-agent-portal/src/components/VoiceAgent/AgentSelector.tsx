@@ -24,7 +24,6 @@ const AgentSelector: React.FC = () => {
       try {
         setLoading(true);
         const response = await api.get(AGENT_ENDPOINTS.LIST);
-        console.log("Available agents:", response.data);
         const agentsData =
           response.data && Array.isArray(response.data)
             ? response.data
@@ -35,7 +34,6 @@ const AgentSelector: React.FC = () => {
         setAgents(agentsData);
         setLoading(false);
       } catch (err: any) {
-        console.error("Error fetching agents:", err);
         setError("Failed to load agents. Please try again.");
         setLoading(false);
       }
@@ -52,7 +50,6 @@ const AgentSelector: React.FC = () => {
       // Navigate to the agent page
       navigate(`/agent/${agent.id}`);
     } catch (err: any) {
-      console.error("Error accessing agent:", err);
       setError("Failed to access agent. Please try again.");
     }
   };

@@ -15,6 +15,10 @@ from io import BytesIO
 import pydub
 from google.cloud import texttospeech
 from google.cloud import speech
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -271,7 +275,7 @@ class STTWrapper:
             audio_data = audio_frame
 
         if not isinstance(audio_data, np.ndarray):
-            print("Error: Invalid audio data format")
+            logger.error("Error: Invalid audio data format")
             return "", "unknown"
 
         # Convert numpy array to WAV format
@@ -340,7 +344,7 @@ class ElevenLabsTTS:
             if not available_voices:
                 raise ValueError("No voices found in ElevenLabs account")
         except Exception as e:
-            print(f"Error initializing ElevenLabs: {str(e)}")
+            logger.error(f"Error initializing ElevenLabs: {str(e)}")
             raise
             
         # Initialize with English as default
@@ -426,7 +430,7 @@ class ElevenLabsTTS:
             return audio_stream.read()
             
         except Exception as e:
-            print(f"Error in ElevenLabsTTS synthesize: {str(e)}")
+            logger.error(f"Error in ElevenLabsTTS synthesize: {str(e)}")
             return b""
 
 class GoogleTTS_SSML:
@@ -460,7 +464,7 @@ class GoogleTTS_SSML:
                 )
         
         except Exception as e:
-            print(f"Error initializing Google TTS client: {str(e)}")
+            logger.error(f"Error initializing Google TTS client: {str(e)}")
             raise
         
         # Initialize with English as default
@@ -845,10 +849,10 @@ class GoogleTTS_SSML:
                 return response.audio_content
                 
             except Exception as api_error:
-                print(f"API Error in GoogleTTS synthesize: {str(api_error)}")
+                logger.error(f"API Error in GoogleTTS synthesize: {str(api_error)}")
                 # If authentication fails, try to refresh credentials
                 if "authentication" in str(api_error).lower():
-                    print("Attempting to refresh credentials...")
+                    logger.info("Attempting to refresh credentials...")
                     self.__init__()  # Reinitialize client
                     response = self.client.synthesize_speech(
                         input=synthesis_input,
@@ -859,7 +863,7 @@ class GoogleTTS_SSML:
                 raise
             
         except Exception as e:
-            print(f"Error in GoogleTTS synthesize: {str(e)}")
+            logger.error(f"Error in GoogleTTS synthesize: {str(e)}")
             return b""
 
 class GoogleTTS:
@@ -893,7 +897,7 @@ class GoogleTTS:
                 )
         
         except Exception as e:
-            print(f"Error initializing Google TTS client: {str(e)}")
+            logger.error(f"Error initializing Google TTS client: {str(e)}")
             raise
         
         # Initialize with English as default
@@ -982,10 +986,10 @@ class GoogleTTS:
                 return response.audio_content
                 
             except Exception as api_error:
-                print(f"API Error in GoogleTTS synthesize: {str(api_error)}")
+                logger.error(f"API Error in GoogleTTS synthesize: {str(api_error)}")
                 # If authentication fails, try to refresh credentials
                 if "authentication" in str(api_error).lower():
-                    print("Attempting to refresh credentials...")
+                    logger.info("Attempting to refresh credentials...")
                     self.__init__()  # Reinitialize client
                     response = self.client.synthesize_speech(
                         input=synthesis_input,
@@ -996,7 +1000,7 @@ class GoogleTTS:
                 raise
             
         except Exception as e:
-            print(f"Error in GoogleTTS synthesize: {str(e)}")
+            logger.error(f"Error in GoogleTTS synthesize: {str(e)}")
             return b""
 
 class SarvamSTT:
@@ -1054,7 +1058,7 @@ class SarvamSTT:
             return transcript, detected_language
             
         except Exception as e:
-            print(f"Error in SarvamSTT transcribe: {str(e)}")
+            logger.error(f"Error in SarvamSTT transcribe: {str(e)}")
             return "", "unknown"
 
     def set_language(self, lang: str):
@@ -1105,7 +1109,7 @@ class SarvamSTT:
             return base64.b64decode(audio_base64)
             
         except Exception as e:
-            print(f"Error in SarvamTTS synthesize: {str(e)}")
+            logger.error(f"Error in SarvamTTS synthesize: {str(e)}")
             return b""
 
 class GoogleSTT:
@@ -1149,7 +1153,7 @@ class GoogleSTT:
             self.reverse_language_map = {v: k for k, v in self.language_map.items()}
             
         except Exception as e:
-            print(f"Error initializing Google STT client: {str(e)}")
+            logger.error(f"Error initializing Google STT client: {str(e)}")
             raise
 
     def transcribe(self, audio_file: BinaryIO) -> tuple[str, str]:
@@ -1198,7 +1202,7 @@ class GoogleSTT:
             return transcript, detected_language
             
         except Exception as e:
-            print(f"Error in GoogleSTT transcribe: {str(e)}")
+            logger.error(f"Error in GoogleSTT transcribe: {str(e)}")
             return "", "unknown"
 
 class ElevenLabsSTT:
@@ -1265,7 +1269,7 @@ class ElevenLabsSTT:
             return transcript, detected_language
             
         except Exception as e:
-            print(f"Error in ElevenLabsSTT transcribe: {str(e)}")
+            logger.error(f"Error in ElevenLabsSTT transcribe: {str(e)}")
             return "", "english"
 
 def get_stt_model() -> STTProvider:

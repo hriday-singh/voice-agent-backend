@@ -89,3 +89,4 @@ libsql-*/
 # Custom scripts
 secure_db.py
 rebuild_db.py
+turso_test.py

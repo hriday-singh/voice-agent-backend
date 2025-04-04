@@ -37,7 +37,7 @@ ENV HF_HOME=/home/app/.cache/huggingface
 ENV TRANSFORMERS_CACHE=/home/app/.cache/huggingface/transformers
 
 # Health check
-HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
+HEALTHCHECK --interval=10m --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Expose port

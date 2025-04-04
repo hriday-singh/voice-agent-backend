@@ -2,7 +2,7 @@ import api from "./api";
 
 // Utility function to extract error message from error response
 const getErrorMessage = (error: any): string => {
-  console.log("Error response:", error.response?.data);
+  console.error("Error response:", error.response?.data);
 
   if (error.response?.data) {
     const data = error.response.data;
@@ -73,7 +73,7 @@ export const loginAdmin = async (username: string, password: string) => {
       success: true,
     };
   } catch (error: any) {
-    console.log("Login error:", error);
+    console.error("Login error:", error);
     return {
       success: false,
       error: getErrorMessage(error),

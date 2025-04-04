@@ -120,7 +120,6 @@ const AgentConfiguration: React.FC = () => {
     try {
       setLoading(true);
       const response = await fetchAllAgents();
-      console.log("API response:", response);
 
       // Convert the response to the expected format
       let agentsArray: Agent[] = [];
@@ -153,7 +152,6 @@ const AgentConfiguration: React.FC = () => {
     try {
       setLoading(true);
       const response = await getSystemConfig();
-      console.log("System config response:", response);
       setSystemConfig(response);
       setError(null);
     } catch (err: any) {
@@ -172,7 +170,6 @@ const AgentConfiguration: React.FC = () => {
         limit: usagePagination.limit,
         offset: offset,
       });
-      console.log("Usage stats response:", response);
       setUsageStats(response.data.data || []);
       setUsagePagination((prev) => ({
         ...prev,
@@ -196,7 +193,6 @@ const AgentConfiguration: React.FC = () => {
         limit: trafficPagination.limit,
         offset: offset,
       });
-      console.log("Traffic stats response:", response);
       setTrafficStats(response.data.data || []);
       setTrafficPagination((prev) => ({
         ...prev,
@@ -338,7 +334,6 @@ const AgentConfiguration: React.FC = () => {
       }
 
       const response = await createAgent(newAgent);
-      console.log("Agent added:", response);
 
       // Update the agents list with the new agent
       const newAgentWithPrompt = {
@@ -421,8 +416,6 @@ const AgentConfiguration: React.FC = () => {
           agent.id === agentId ? { ...agent, enabled } : agent
         )
       );
-
-      console.log(response.message);
     } catch (err: any) {
       console.error("Error toggling agent:", err);
       setError(
@@ -456,7 +449,6 @@ const AgentConfiguration: React.FC = () => {
     try {
       setLoading(true);
       const response = await updateSystemConfig(systemConfig);
-      console.log("System config updated:", response.data);
       setEditingSystemConfig(false);
     } catch (err) {
       console.error("Error updating system config:", err);

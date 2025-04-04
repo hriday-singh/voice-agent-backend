@@ -1,8 +1,8 @@
 // Backend server configuration
 export const BACKEND_CONFIG = {
   // The base URL of the backend server
-  baseUrl: process.env.REACT_APP_BACKEND_URL || "http://localhost:8000",
-  API_URL: process.env.REACT_APP_API_URL || "http://localhost:8000",
+  baseUrl: process.env.REACT_APP_BACKEND_URL || "/api",
+  API_URL: process.env.REACT_APP_API_URL || "/api",
 
   // WebSocket configuration
   wsProtocol: window.location.protocol === "https:" ? "wss:" : "ws:",

@@ -229,35 +229,3 @@ class Pipeline:
         conversation_key = f"{conversation_id}_{self.agent_type}"
         if conversation_key in self.conversation_histories:
             del self.conversation_histories[conversation_key]
-
-# For testing the pipeline directly
-if __name__ == "__main__":
-    print("Interactive test mode. Type 'exit' to quit.")
-    print("Available agent types: realestate, hospital")
-    
-    agent_type = input("Select agent type [realestate/hospital]: ").lower()
-    if agent_type not in ["realestate", "hospital"]:
-        agent_type = "realestate"
-        print(f"Using default agent type: {agent_type}")
-    
-    language = input("Select language [english/hindi/telugu/tamil]: ").lower()
-    if language not in LANGUAGE_CODES:
-        language = "english"
-        print(f"Using default language: {language}")
-    
-    # Create pipeline with selected agent type
-    pipeline = Pipeline(agent_type=agent_type)
-    conversation_id = "test"
-    
-    while True:
-        user_input = input("You: ")
-        if user_input.lower() == "exit":
-            break
-            
-        result = pipeline.process(
-            text=user_input,
-            conversation_id=conversation_id,
-            detected_language=language
-        )
-        
-        print(f"Bot [{agent_type}]: {result['response']}")

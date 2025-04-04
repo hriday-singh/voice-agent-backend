@@ -2,6 +2,10 @@ import os
 import json
 from typing import Dict, List, Any, Optional
 from pathlib import Path
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Path to the JSON config file
 CONFIG_FILE_PATH = Path(__file__).parent / "agent_configs.json"
@@ -27,7 +31,7 @@ def get_agent_config() -> Dict[str, Any]:
         return _config_cache
     except Exception as e:
         # Fallback to empty config if file can't be loaded
-        print(f"Error loading agent config: {str(e)}")
+        logger.error(f"Error loading agent config: {str(e)}")
         _config_cache = {"agents": {}}
         return _config_cache
 
@@ -58,7 +62,7 @@ def update_agent_config(new_config: Dict[str, Any]) -> bool:
         
         return True
     except Exception as e:
-        print(f"Error updating agent config: {str(e)}")
+        logger.error(f"Error updating agent config: {str(e)}")
         # Try to restore from backup if update failed
         if backup_path.exists():
             try:
