@@ -4,7 +4,7 @@ import numpy as np
 import os
 import re
 from dotenv import load_dotenv
-from typing import Generator, Tuple, Protocol, BinaryIO
+from typing import Generator, Tuple, Protocol, BinaryIO, Optional
 import io
 import wave
 from datetime import datetime
@@ -16,6 +16,7 @@ import pydub
 from google.cloud import texttospeech
 from google.cloud import speech
 import logging
+from app.utils.agent_config import get_agent_languages
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -142,7 +143,7 @@ HINDI_PRONUNCIATIONS = {
 }
 
 class BaseSTT(Protocol):
-    def transcribe(self, audio_file: BinaryIO) -> tuple[str, str]:
+    def transcribe(self, audio_file: BinaryIO, agent_type: Optional[str] = None) -> tuple[str, str]:
         """Convert audio file to text
         Returns:
             tuple: (transcript, detected_language)
@@ -186,7 +187,7 @@ class TTSProvider(Protocol):
 class AudioProcessor:
     def __init__(self):
         self.sample_rate = 16000  # Default STT sample rate
-        self.tts_sample_rate = 22050  # Default TTS sample rate
+        self.tts_sample_rate = 24000  # Default TTS sample rate
         
         # Create directory for saving audio files
         self.audio_dir = pathlib.Path("audio_recordings")
@@ -257,33 +258,39 @@ class MP3AudioProcessor:
         return str(audio_path)
 
 class STTWrapper:
-    """Generic wrapper for any STT provider that converts audio file to text"""
+    """Wrapper for STT providers that adapts them to our protocol"""
     def __init__(self, provider: BaseSTT):
         self.provider = provider
-        self.audio_proc = AudioProcessor()
-
-    def process_audio(self, audio_frame: Tuple[int, np.ndarray] | np.ndarray) -> Tuple[str, str]:
-        """Process audio and return transcription and detected language
-        Returns:
-            tuple: (transcription, detected_language)
+        self.audio_processor = AudioProcessor()
+        self.current_agent_type = None
+        
+    def set_agent_type(self, agent_type: str) -> None:
+        """Set the agent type for language configuration
+        
+        Args:
+            agent_type: Type of agent to use (e.g., 'realestate', 'hospital')
         """
-        # Handle both tuple and direct numpy array inputs
+        self.current_agent_type = agent_type
+        
+    def process_audio(self, audio_frame: Tuple[int, np.ndarray] | np.ndarray) -> str:
+        """Process audio frame and return transcript"""
+        # Extract audio data
         if isinstance(audio_frame, tuple):
             sample_rate, audio_data = audio_frame
-            self.audio_proc.sample_rate = sample_rate
         else:
+            sample_rate = self.audio_processor.sample_rate
             audio_data = audio_frame
-
-        if not isinstance(audio_data, np.ndarray):
-            logger.error("Error: Invalid audio data format")
-            return "", "unknown"
-
-        # Convert numpy array to WAV format
-        wav_data = self.audio_proc.numpy_to_wav(audio_data)
         
-        # Get transcription and language
-        with io.BytesIO(wav_data) as wav_io:
-            return self.provider.transcribe(wav_io)
+        # Convert to WAV format
+        wav_data = self.audio_processor.numpy_to_wav(audio_data, sample_rate)
+        
+        # Create file-like object
+        audio_file = io.BytesIO(wav_data)
+        
+        # Transcribe with agent type if available
+        transcript, detected_language = self.provider.transcribe(audio_file, self.current_agent_type)
+        
+        return transcript, detected_language
 
 class TTSWrapper:
     """Wrapper around TTS implementations to standardize output format"""
@@ -931,7 +938,7 @@ class GoogleTTS:
         # Audio configuration optimized for telephony
         self.audio_config = texttospeech.AudioConfig(
             audio_encoding=texttospeech.AudioEncoding.LINEAR16,
-            sample_rate_hertz=24000,
+            sample_rate_hertz=16000,
             effects_profile_id=['handset-class-device'],
             speaking_rate=1.0,
             pitch=0.0,
@@ -1156,10 +1163,11 @@ class GoogleSTT:
             logger.error(f"Error initializing Google STT client: {str(e)}")
             raise
 
-    def transcribe(self, audio_file: BinaryIO) -> tuple[str, str]:
+    def transcribe(self, audio_file: BinaryIO, agent_type: Optional[str] = None) -> tuple[str, str]:
         """Convert audio file to text using Google Cloud Speech-to-Text API
         Args:
             audio_file: Audio file in WAV format
+            agent_type: Type of agent being used (optional, for language selection)
         Returns:
             tuple: (transcript, detected_language)
         """
@@ -1170,18 +1178,32 @@ class GoogleSTT:
             # Create the recognition audio object
             audio = speech.RecognitionAudio(content=audio_content)
             
+            # Default language settings
+            primary_language_code = 'en-IN'
+            alternative_language_codes = ['hi-IN', 'ta-IN', 'te-IN']
+            
+            # If agent_type is provided, get agent-specific language settings
+            if agent_type:
+                agent_languages = get_agent_languages(agent_type)
+                if agent_languages:
+                    # Get primary language
+                    primary_language_code = agent_languages.get("primary", 'en-IN')
+                    
+                    # Get supported languages excluding primary
+                    supported_languages = agent_languages.get("supported", [])
+                    alternative_language_codes = [lang for lang in supported_languages if lang != primary_language_code]
+            
             # Configure the recognition settings
             config = speech.RecognitionConfig(
                 encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-                sample_rate_hertz=48000,  # Updated to match the WAV file
+                sample_rate_hertz=48000,
                 enable_automatic_punctuation=True,
                 model='default',  # Can be 'video', 'phone_call', 'command_and_search', etc.
-                language_code='en-IN',  # Default to English
-                alternative_language_codes=['hi-IN', 'ta-IN', 'te-IN'],  # Also try Hindi, Tamil, Telugu
+                language_code=primary_language_code,  # Use agent's primary language
+                alternative_language_codes=alternative_language_codes,  # Use agent's supported languages
                 enable_spoken_punctuation=True,
                 enable_spoken_emojis=False,
             )
-            
             # Perform the transcription
             response = self.client.recognize(config=config, audio=audio)
             
@@ -1191,14 +1213,26 @@ class GoogleSTT:
             # Get the transcript from the first result
             transcript = response.results[0].alternatives[0].transcript
             
-            # Get the detected language
-            detected_language = response.results[0].language_code
-            if detected_language:
-                # Default to english for any unknown language code
-                detected_language = self.reverse_language_map.get(detected_language, 'unknown')
+            # Get the detected language from response
+            detected_language_code = response.results[0].language_code
+            
+            # Convert language code to lowercase for consistent mapping
+            if detected_language_code:
+                detected_language_code = detected_language_code.lower()
+                # Map the language code (e.g., "hi-in") to our language format (e.g., "hindi")
+                detected_language = self.reverse_language_map.get(detected_language_code, 'unknown')
+                
+                # If exact match not found, try matching just the language part (e.g., "hi")
+                if detected_language == 'unknown' and '-' in detected_language_code:
+                    lang_part = detected_language_code.split('-')[0]
+                    for key, value in self.language_map.items():
+                        if value.lower().startswith(lang_part):
+                            detected_language = key
+                            break
             else:
                 detected_language = 'unknown'
             
+            logger.info(f"Transcribed text: '{transcript}', Detected language: {detected_language} (code: {detected_language_code})")
             return transcript, detected_language
             
         except Exception as e:
@@ -1275,7 +1309,7 @@ class ElevenLabsSTT:
 def get_stt_model() -> STTProvider:
     """Get STT model"""
     # Uncomment the provider you want to use
-    return STTWrapper(SarvamSTT())
+    return STTWrapper(GoogleSTT())
 
 def get_tts_model() -> TTSProvider:
     """Get TTS model"""

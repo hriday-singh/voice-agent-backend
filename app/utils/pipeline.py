@@ -7,7 +7,14 @@ from langchain_openai import ChatOpenAI
 from langchain.schema import SystemMessage, HumanMessage, AIMessage
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
-from app.utils.agent_config import get_agent_by_id, get_language_codes, get_model_config
+from app.utils.agent_config import (
+    get_agent_by_id, 
+    get_language_codes,
+    get_agent_model_config,
+    get_agent_error_messages,
+    get_agent_languages,
+    get_audio_options
+)
 
 # Load environment variables
 load_dotenv()
@@ -18,11 +25,8 @@ AgentType = Literal["realestate", "hospital"]
 # Get language codes from config
 LANGUAGE_CODES = get_language_codes()
 
-# Get model configuration from central config
-MODEL_CONFIG = get_model_config()
-# MODEL_NAME = MODEL_CONFIG.get("name", "gpt-4o")
-MODEL_NAME = MODEL_CONFIG.get("name", "claude-3-5-sonnet-20240620")
-TEMPERATURE = MODEL_CONFIG.get("temperature", 0.5)
+# Get audio options from config
+AUDIO_OPTIONS = get_audio_options()
 
 class ConversationState(TypedDict):
     """State definition for the conversation graph"""
@@ -33,18 +37,30 @@ class ConversationState(TypedDict):
     history: List[Dict[str, Any]]  # Full conversation history
     agent_type: AgentType  # Type of agent to use
 
-def format_ssml_response(text: str, language: str) -> str:
+def format_ssml_response(text: str, language: str, agent_type: AgentType) -> str:
     """Format the response text with proper SSML tags
     
     Args:
         text: Raw response text
         language: Language code for SSML
+        agent_type: Type of agent being used
         
     Returns:
         str: SSML formatted text
     """
+    # Get agent-specific language settings
+    agent_languages = get_agent_languages(agent_type)
+    supported_languages = agent_languages.get("supported", [])
+    primary_language = agent_languages.get("primary", "en-IN")
+    
     # Get language code from mapping
-    lang_code = LANGUAGE_CODES.get(language.lower(), "en-IN")
+    lang_code = LANGUAGE_CODES.get(language.lower(), primary_language)
+    
+    # Check if language is supported for this agent
+    if lang_code not in supported_languages:
+        # Use unsupported language message from agent config
+        error_messages = get_agent_error_messages(agent_type)
+        return error_messages.get("unsupported_language", f"<speak xml:lang='{primary_language}'><prosody rate='medium' pitch='0%'>Kindly please repeat.</prosody></speak>")
     
     # Check if text already has SSML tags
     if text.strip().startswith('<speak>') and text.strip().endswith('</speak>'):
@@ -84,23 +100,41 @@ def load_prompt(agent_type: AgentType) -> str:
         # Fallback to simple prompt if file can't be loaded
         return f"You are a helpful assistant for {agent_type} inquiries."
 
-def create_agent():
+def create_agent(agent_type: AgentType):
     """Create and configure the conversation agent
     
+    Args:
+        agent_type: Type of agent to use
+        
     Returns:
         compiled graph: The compiled agent graph
     """
+    # Get agent-specific model configuration
+    model_config = get_agent_model_config(agent_type)
+    model_name = model_config.get("name", "claude-3-5-sonnet-20240620")
+    temperature = model_config.get("temperature", 0.5)
+    provider = model_config.get("provider", "anthropic")
+    
     # Initialize the LLM with model settings from config
-    llm = ChatAnthropic(
-        model=MODEL_NAME,
-        api_key=os.getenv('CLAUDE_API_KEY'),
-        temperature=TEMPERATURE
-    )
-    # llm = ChatOpenAI(
-    #     model=MODEL_NAME,
-    #     api_key=os.getenv('OPENAI_API_KEY'),
-    #     temperature=TEMPERATURE
-    # )
+    if provider.lower() == "anthropic":
+        llm = ChatAnthropic(
+            model=model_name,
+            api_key=os.getenv('CLAUDE_API_KEY'),
+            temperature=temperature
+        )
+    elif provider.lower() == "openai":
+        llm = ChatOpenAI(
+            model=model_name,
+            api_key=os.getenv('OPENAI_API_KEY'),
+            temperature=temperature
+        )
+    else:
+        # Default to Anthropic if provider not recognized
+        llm = ChatAnthropic(
+            model=model_name,
+            api_key=os.getenv('CLAUDE_API_KEY'),
+            temperature=temperature
+        )
     
     # Initialize the state graph
     graph = StateGraph(ConversationState)
@@ -109,10 +143,10 @@ def create_agent():
     def conversation_node(state: ConversationState):
         # Get conversation history and agent type
         history = state.get("history", [])
-        agent_type = state.get("agent_type", "realestate")
+        current_agent_type = state.get("agent_type", agent_type)
         
         # Load appropriate system prompt
-        system_prompt = load_prompt(agent_type)
+        system_prompt = load_prompt(current_agent_type)
         
         # Prepare messages with system prompt and conversation history
         messages = [
@@ -134,7 +168,11 @@ def create_agent():
         response = llm.invoke(messages)
         
         # Format response with SSML
-        ssml_response = format_ssml_response(response.content, state["detected_language"])
+        ssml_response = format_ssml_response(
+            response.content, 
+            state["detected_language"], 
+            current_agent_type
+        )
         
         # Update history with current exchange
         new_history = history + [
@@ -149,7 +187,7 @@ def create_agent():
             "conversation_id": state["conversation_id"],
             "detected_language": state["detected_language"],
             "history": new_history,
-            "agent_type": agent_type
+            "agent_type": current_agent_type
         }
     
     # Add nodes and edges to the graph
@@ -162,21 +200,44 @@ def create_agent():
 class Pipeline:
     """Main pipeline for handling voice agent conversations"""
     
-    def __init__(self, anthropic_api_key: str = None, agent_type: AgentType = "realestate"):
+    def __init__(self, anthropic_api_key: str = None, openai_api_key: str = None, agent_type: AgentType = "realestate"):
         """Initialize the pipeline
         
         Args:
             anthropic_api_key: API key for Anthropic (optional, defaults to env var)
+            openai_api_key: API key for OpenAI (optional, defaults to env var)
             agent_type: Type of agent to use (realestate or hospital)
         """
+        # Set API keys if provided
         if anthropic_api_key:
             os.environ['CLAUDE_API_KEY'] = anthropic_api_key
-        elif not os.getenv('CLAUDE_API_KEY'):
-            raise ValueError("Claude API key not provided")
+        if openai_api_key:
+            os.environ['OPENAI_API_KEY'] = openai_api_key
+            
+        # Check for required API keys based on provider
+        model_config = get_agent_model_config(agent_type)
+        provider = model_config.get("provider", "anthropic")
+        
+        if provider.lower() == "anthropic" and not os.getenv('CLAUDE_API_KEY'):
+            raise ValueError("Claude API key not provided but required for this agent")
+        elif provider.lower() == "openai" and not os.getenv('OPENAI_API_KEY'):
+            raise ValueError("OpenAI API key not provided but required for this agent")
         
         self.agent_type = agent_type
-        self.agent = create_agent()
+        self.agent = create_agent(agent_type)
         self.conversation_histories = {}  # Store histories for each conversation
+        
+    def get_error_message(self, error_type: str) -> str:
+        """Get agent-specific error message
+        
+        Args:
+            error_type: Type of error (error, unclear_audio, unsupported_language)
+            
+        Returns:
+            str: SSML formatted error message
+        """
+        error_messages = get_agent_error_messages(self.agent_type)
+        return error_messages.get(error_type, "I'm sorry, I couldn't understand. Please try again.")
         
     def process(self, 
                 text: str, 
@@ -192,6 +253,15 @@ class Pipeline:
         Returns:
             dict: Contains response text and other metadata
         """
+        # Check for empty or unclear input
+        if not text or len(text.strip()) < 2:
+            return {
+                "response": self.get_error_message("unclear_audio"),
+                "conversation_id": conversation_id,
+                "detected_language": detected_language,
+                "agent_type": self.agent_type
+            }
+        
         # Get existing history or initialize new one
         conversation_key = f"{conversation_id}_{self.agent_type}"
         history = self.conversation_histories.get(conversation_key, [])
@@ -206,19 +276,29 @@ class Pipeline:
             "agent_type": self.agent_type
         }
         
-        # Run the agent
-        final_state = self.agent.invoke(initial_state)
-        
-        # Update conversation history
-        self.conversation_histories[conversation_key] = final_state["history"]
-        
-        # Return the response
-        return {
-            "response": final_state["response"],
-            "conversation_id": final_state["conversation_id"],
-            "detected_language": final_state["detected_language"],
-            "agent_type": final_state["agent_type"]
-        }
+        try:
+            # Run the agent
+            final_state = self.agent.invoke(initial_state)
+            
+            # Update conversation history
+            self.conversation_histories[conversation_key] = final_state["history"]
+            
+            # Return the response
+            return {
+                "response": final_state["response"],
+                "conversation_id": final_state["conversation_id"],
+                "detected_language": final_state["detected_language"],
+                "agent_type": final_state["agent_type"]
+            }
+        except Exception as e:
+            # Return error message on failure
+            return {
+                "response": self.get_error_message("error"),
+                "conversation_id": conversation_id,
+                "detected_language": detected_language,
+                "agent_type": self.agent_type,
+                "error": str(e)
+            }
         
     def clear_history(self, conversation_id: str) -> None:
         """Clear conversation history for a specific conversation

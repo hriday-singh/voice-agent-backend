@@ -112,10 +112,54 @@ def get_language_codes() -> Dict[str, str]:
     config = get_agent_config()
     return config.get("language_codes", {})
 
-def get_model_config() -> Dict[str, Any]:
-    """Get model configuration"""
-    config = get_agent_config()
-    return config.get("model_config", {})
+def get_agent_languages(agent_id: str) -> Dict[str, Any]:
+    """
+    Get language settings for a specific agent
+    
+    Args:
+        agent_id: ID of the agent
+        
+    Returns:
+        Dict containing language settings or empty dict if not found
+    """
+    agent_config = get_agent_by_id(agent_id)
+    if not agent_config:
+        return {}
+    return agent_config.get("languages", {})
+
+def get_agent_model_config(agent_id: str) -> Dict[str, Any]:
+    """
+    Get model configuration for a specific agent
+    
+    Args:
+        agent_id: ID of the agent
+        
+    Returns:
+        Dict containing model configuration or default config if not found
+    """
+    agent_config = get_agent_by_id(agent_id)
+    if not agent_config or "model_config" not in agent_config:
+        # Fallback to global config
+        config = get_agent_config()
+        return config.get("model_config", {})
+    return agent_config["model_config"]
+
+def get_agent_error_messages(agent_id: str) -> Dict[str, str]:
+    """
+    Get error messages for a specific agent
+    
+    Args:
+        agent_id: ID of the agent
+        
+    Returns:
+        Dict containing error messages or default messages if not found
+    """
+    agent_config = get_agent_by_id(agent_id)
+    if not agent_config or "error_messages" not in agent_config:
+        # Fallback to default messages
+        config = get_agent_config()
+        return config.get("default_messages", {})
+    return agent_config["error_messages"]
 
 def get_audio_options() -> Dict[str, float]:
     """Get audio processing options"""

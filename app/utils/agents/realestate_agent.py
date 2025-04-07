@@ -4,6 +4,7 @@ from app.utils.agent_config import get_agent_by_id
 from decouple import config
 from fastrtc import ReplyOnPause, AlgoOptions, Stream
 from uuid import uuid4
+import numpy as np
 
 # Get agent configuration
 agent_config = get_agent_by_id("realestate")
@@ -11,6 +12,9 @@ agent_config = get_agent_by_id("realestate")
 # Initialize models
 stt_model = get_stt_model()
 tts_model = get_tts_model()
+
+# Set agent type for STT model
+stt_model.set_agent_type("realestate")
 
 # Set voice name if specified in config
 if agent_config and "voice_name" in agent_config:
@@ -24,9 +28,9 @@ conversation_id = None
 
 # Configure audio options
 options = AlgoOptions(
-    audio_chunk_duration=0.6,  # Using the value from agent_configs.json
-    started_talking_threshold=0.3,
-    speech_threshold=0.5,
+    audio_chunk_duration=agent_config.get("audio_chunk_duration", 0.8),
+    started_talking_threshold=agent_config.get("started_talking_threshold", 0.4),
+    speech_threshold=agent_config.get("speech_threshold", 0.7),
 )
 
 rtc_configuration = {
@@ -43,8 +47,14 @@ rtc_configuration = {
 }
 
 # Default messages
-DEFAULT_STARTUP_MESSAGE = "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>Welcome to MyHome Constructions. How may I help you with your real estate inquiries today?</prosody></speak>"
-DEFAULT_ERROR_MESSAGE = "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I apologize, I couldn't understand. Please try again.</prosody></speak>"
+DEFAULT_STARTUP_MESSAGE = agent_config.get("startup_message", "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>Welcome to MyHome Constructions. How may I help you with your real estate inquiries today?</prosody></speak>") 
+DEFAULT_ERROR_MESSAGE = agent_config.get("error_messages", {}).get("error", "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I apologize, I couldn't understand. Please try again.</prosody></speak>")
+
+# Helper function for empty audio generator
+def empty_audio_iterator():
+    # Create a generator that yields a single empty/silent frame
+    # Use a valid sample rate (16000) instead of 0 to prevent ZeroDivisionError in librosa.resample
+    yield (16000, np.zeros(1, dtype=np.float32))
 
 # Startup function with error handling
 def startup():
@@ -54,49 +64,52 @@ def startup():
         for chunk in tts_model.generate_audio(text=DEFAULT_STARTUP_MESSAGE):
             yield chunk
     except Exception as e:
-        yield b""
+        # Use empty_audio_iterator instead of yielding bytes
+        yield from empty_audio_iterator()
 
 def process_audio(audio):
     global conversation_id
     
     try:
-        # Process audio and get transcription and language
+        # Process audio and get transcription
         transcript, detected_language = stt_model.process_audio(audio)
 
-        if detected_language == 'unknown' or not transcript:
+        if not transcript:
+            # Get error message from agent config
+            error_msg = agent_config.get("error_messages", {}).get("unclear_audio", 
+                     "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I couldn't hear you clearly. Could you please repeat?</prosody></speak>")
             try:
-                return tts_model.generate_audio(text="<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I couldn't hear you clearly. Could you please repeat?</prosody></speak>")
+                return tts_model.generate_audio(text=error_msg)
             except Exception as e:
-                return b""  # Return empty audio if TTS fails
-
-        if detected_language != 'hindi' and detected_language != 'english' and detected_language != 'telugu':
-            return tts_model.generate_audio(text="<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>Kindly please repeat.</prosody></speak>")
+                return empty_audio_iterator()
         
         # Process through pipeline with consistent conversation_id
         if not conversation_id:
             conversation_id = str(uuid4())
         
-        # Pass both transcript and detected language to pipeline
-        result = pipeline.process(
-            text=transcript,
-            conversation_id=conversation_id,
-            detected_language=detected_language
-        )
+        # Pass transcript to pipeline (language detection is now handled in the STT module)
+        try:
+            result = pipeline.process(
+                text=transcript,
+                conversation_id=conversation_id,
+                detected_language=detected_language
+            )
+        except Exception as e:
+            return empty_audio_iterator()
         
         # Get response from pipeline
         response_text = result['response']
-        
         # Generate and stream the response audio
         try:
             return tts_model.generate_audio(response_text)
         except Exception as e:
-            # Fallback to a simple error message
             try:
                 return tts_model.generate_audio(text=DEFAULT_ERROR_MESSAGE)
             except:
-                return b""  # Return empty audio if even fallback TTS fails
+                return empty_audio_iterator()
     except Exception as e:
-        return b""  # Return empty audio if TTS fails
+        # Return empty audio iterator instead of bytes to prevent ZeroDivisionError
+        return empty_audio_iterator()
 
 # Create Stream with ReplyOnPause and concurrency settings
 stream = Stream(

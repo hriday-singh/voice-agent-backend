@@ -479,6 +479,22 @@ export interface AgentData {
   startup_message: string;
   prompt: string;
   enabled?: boolean;
+  voice_name?: string;
+  languages?: {
+    primary: string;
+    supported: string[];
+  };
+  model_config?: {
+    provider: string;
+    name: string;
+    temperature: number;
+  };
+  error_messages?: {
+    error: string;
+    unclear_audio: string;
+    unsupported_language: string;
+    [key: string]: string;
+  };
 }
 
 export interface AgentResponse {
@@ -491,6 +507,22 @@ export interface AgentResponse {
     startup_message: string;
     prompt_file: string;
     enabled: boolean;
+    voice_name?: string;
+    languages?: {
+      primary: string;
+      supported: string[];
+    };
+    model_config?: {
+      provider: string;
+      name: string;
+      temperature: number;
+    };
+    error_messages?: {
+      error: string;
+      unclear_audio: string;
+      unsupported_language: string;
+      [key: string]: string;
+    };
   };
 }
 

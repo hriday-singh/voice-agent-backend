@@ -7,16 +7,44 @@
       "startup_message": "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>Welcome to MyHome Constructions. How may I help you with your real estate inquiries today?</prosody></speak>",
       "prompt_file": "app/utils/prompts/realestate_prompt.txt",
       "enabled": true,
-      "voice_name": "te-IN-Standard-A"
+      "voice_name": "te-IN-Standard-A",
+      "languages": {
+        "primary": "en-IN",
+        "supported": ["en-IN", "te-IN", "hi-IN"]
+      },
+      "model_config": {
+        "provider": "anthropic",
+        "name": "claude-3-5-sonnet-20240620",
+        "temperature": 0.5
+      },
+      "error_messages": {
+        "error": "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I apologize, I couldn't understand your real estate query. Please try again.</prosody></speak>",
+        "unclear_audio": "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I couldn't hear your property request clearly. Could you please repeat?</prosody></speak>",
+        "unsupported_language": "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I'm sorry, but that language isn't supported for real estate inquiries. Please use English, Telugu or Hindi.</prosody></speak>"
+      }
     },
     "hospital": {
       "name": "Yashoda Hospital Agent",
       "description": "Voice agent for Yashoda Hospital appointment scheduling and inquiries",
       "api_path": "/voice-agents/hospital",
-      "startup_message": "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>Welcome to <say-as interpret-as='spell-out'>Ya</say-as><break time='100ms'/><say-as interpret-as='characters'>sho</say-as>da Hospital. How may I assist you with your appointment or medical inquiry today?</prosody></speak>",
+      "startup_message": "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>Welcome to <speak><phoneme alphabet='ipa' ph='jəˈʃoːda'>Yashoda</phoneme></speak> Hospital. How may I assist you with your appointment or medical inquiry today?</prosody></speak>",
       "prompt_file": "app/utils/prompts/hospital_prompt.txt",
       "enabled": true,
-      "voice_name": "hi-IN-Wavenet-E"
+      "voice_name": "hi-IN-Wavenet-E",
+      "languages": {
+        "primary": "hi-IN",
+        "supported": ["en-IN", "hi-IN"]
+      },
+      "model_config": {
+        "provider": "anthropic",
+        "name": "claude-3-5-sonnet-20240620",
+        "temperature": 0.5
+      },
+      "error_messages": {
+        "error": "<speak xml:lang='hi-IN'><prosody rate='medium' pitch='0%'>I apologize, I couldn't understand your medical query. Please try again.</prosody></speak>",
+        "unclear_audio": "<speak xml:lang='hi-IN'><prosody rate='medium' pitch='0%'>I couldn't hear your medical request clearly. Could you please repeat?</prosody></speak>",
+        "unsupported_language": "<speak xml:lang='hi-IN'><prosody rate='medium' pitch='0%'>I'm sorry, but that language isn't supported for hospital inquiries. Please use English or Hindi.</prosody></speak>"
+      }
     }
   },
   "language_codes": {
@@ -25,14 +53,10 @@
     "telugu": "te-IN",
     "tamil": "ta-IN"
   },
-  "model_config": {
-    "name": "claude-3-5-sonnet-20240620",
-    "temperature": 0.5
-  },
   "audio_options": {
-    "audio_chunk_duration": 0.4,
-    "started_talking_threshold": 0.2,
-    "speech_threshold": 0.3
+    "audio_chunk_duration": 0.8,
+    "started_talking_threshold": 0.4,
+    "speech_threshold": 0.7
   },
   "default_messages": {
     "error": "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I apologize, I couldn't understand. Please try again.</prosody></speak>",

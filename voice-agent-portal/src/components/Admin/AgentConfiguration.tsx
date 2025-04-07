@@ -26,14 +26,26 @@ interface Agent {
   api_path: string;
   prompt_file: string;
   enabled: boolean;
+  voice_name?: string;
+  languages?: {
+    primary: string;
+    supported: string[];
+  };
+  model_config?: {
+    provider: string;
+    name: string;
+    temperature: number;
+  };
+  error_messages?: {
+    error: string;
+    unclear_audio: string;
+    unsupported_language: string;
+    [key: string]: string;
+  };
 }
 
 interface SystemConfig {
   language_codes: Record<string, string>;
-  model_config: {
-    name: string;
-    temperature: number;
-  };
   audio_options: {
     audio_chunk_duration: number;
     started_talking_threshold: number;
@@ -74,13 +86,34 @@ const AgentConfiguration: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [editMode, setEditMode] = useState<boolean>(false);
-  const [newAgent, setNewAgent] = useState<AgentData>({
+  const [newAgent, setNewAgent] = useState<any>({
     id: "",
     name: "",
     description: "",
     startup_message:
       "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>Welcome message</prosody></speak>",
     prompt: "System prompt that defines agent behavior",
+    api_path: "",
+    prompt_file: "",
+    enabled: true,
+    voice_name: "",
+    languages: {
+      primary: "en-IN",
+      supported: ["en-IN"],
+    },
+    model_config: {
+      provider: "anthropic",
+      name: "claude-3-5-sonnet-20240620",
+      temperature: 0.5,
+    },
+    error_messages: {
+      error:
+        "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I apologize, I couldn't understand. Please try again.</prosody></speak>",
+      unclear_audio:
+        "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I couldn't hear you clearly. Could you please repeat?</prosody></speak>",
+      unsupported_language:
+        "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I'm sorry, but that language isn't supported. Please try another language.</prosody></speak>",
+    },
   });
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [editingSystemConfig, setEditingSystemConfig] =
@@ -95,6 +128,11 @@ const AgentConfiguration: React.FC = () => {
     totalPages: 1,
     limit: 10,
   });
+
+  // Get the selected agent based on selectedAgentId
+  const selectedAgent = selectedAgentId
+    ? agents.find((a) => a.id === selectedAgentId) || null
+    : null;
 
   useEffect(() => {
     if (activeTab === "agents") {
@@ -134,6 +172,10 @@ const AgentConfiguration: React.FC = () => {
             api_path: agentData.api_path,
             prompt_file: agentData.prompt_file,
             enabled: agentData.enabled !== false,
+            voice_name: agentData.voice_name,
+            languages: agentData.languages,
+            model_config: agentData.model_config,
+            error_messages: agentData.error_messages,
           })
         );
       }
@@ -216,23 +258,216 @@ const AgentConfiguration: React.FC = () => {
     const { name, value } = e.target;
 
     if (selectedAgentId) {
-      // Edit existing agent
-      setAgents((prevAgents) =>
-        prevAgents.map((agent) =>
-          agent.id === selectedAgentId
-            ? {
-                ...agent,
-                [name]: value,
-              }
-            : agent
-        )
+      // Editing existing agent
+      setAgents((prev) =>
+        prev.map((agent) => {
+          if (agent.id === selectedAgentId) {
+            return { ...agent, [name]: value };
+          }
+          return agent;
+        })
       );
     } else {
-      // New agent
-      setNewAgent((prev) => ({
+      // Creating new agent
+      setNewAgent((prev: any) => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const handleModelConfigChange = (key: string, value: any) => {
+    if (selectedAgentId) {
+      // Editing existing agent
+      setAgents((prev) =>
+        prev.map((agent) => {
+          if (agent.id === selectedAgentId) {
+            return {
+              ...agent,
+              model_config: {
+                // Ensure model_config exists with default values if undefined
+                provider: "anthropic",
+                name: "claude-3-5-sonnet-20240620",
+                temperature: 0.5,
+                ...(agent.model_config || {}),
+                [key]: value,
+              },
+            } as Agent; // Type assertion to Agent
+          }
+          return agent;
+        })
+      );
+    } else {
+      // Creating new agent
+      setNewAgent((prev: any) => ({
         ...prev,
-        [name]: value,
+        model_config: {
+          ...prev.model_config,
+          [key]: value,
+        },
       }));
+    }
+  };
+
+  const handleLanguagesChange = (key: string, value: any) => {
+    if (selectedAgentId) {
+      // Editing existing agent
+      setAgents((prev) =>
+        prev.map((agent) => {
+          if (agent.id === selectedAgentId) {
+            return {
+              ...agent,
+              languages: {
+                // Ensure languages exists with default values if undefined
+                primary: "en-IN",
+                supported: ["en-IN"],
+                ...(agent.languages || {}),
+                [key]: value,
+              },
+            } as Agent; // Type assertion to Agent
+          }
+          return agent;
+        })
+      );
+    } else {
+      // Creating new agent
+      setNewAgent((prev: any) => ({
+        ...prev,
+        languages: {
+          ...prev.languages,
+          [key]: value,
+        },
+      }));
+    }
+  };
+
+  const handleErrorMessageChange = (key: string, value: string) => {
+    if (selectedAgentId) {
+      // Editing existing agent
+      setAgents((prev) =>
+        prev.map((agent) => {
+          if (agent.id === selectedAgentId) {
+            return {
+              ...agent,
+              error_messages: {
+                // Ensure error_messages exists with default values if undefined
+                error:
+                  "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I apologize, I couldn't understand. Please try again.</prosody></speak>",
+                unclear_audio:
+                  "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I couldn't hear you clearly. Could you please repeat?</prosody></speak>",
+                unsupported_language:
+                  "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I'm sorry, but that language isn't supported. Please try another language.</prosody></speak>",
+                ...(agent.error_messages || {}),
+                [key]: value,
+              },
+            } as Agent; // Type assertion to Agent
+          }
+          return agent;
+        })
+      );
+    } else {
+      // Creating new agent
+      setNewAgent((prev: any) => ({
+        ...prev,
+        error_messages: {
+          ...prev.error_messages,
+          [key]: value,
+        },
+      }));
+    }
+  };
+
+  const handleAddSupportedLanguage = () => {
+    if (!systemConfig) return;
+
+    // Get available language codes from system config
+    const availableLanguages = Object.values(systemConfig.language_codes);
+
+    // Create dropdown options from available languages
+    const options = availableLanguages
+      .map((code) => `<option value="${code}">${code}</option>`)
+      .join("");
+
+    // Show custom dialog
+    const dialog = window.confirm("Select a language code to add");
+    if (!dialog) return;
+
+    // Get selected value (fallback to first language if none selected)
+    const selectedLanguage = availableLanguages[0];
+
+    if (selectedAgentId) {
+      // Add to existing agent
+      setAgents((prev) =>
+        prev.map((agent) => {
+          if (agent.id === selectedAgentId) {
+            const currentLanguages = agent.languages || {
+              primary: "en-IN",
+              supported: [],
+            };
+
+            // Only add if not already in the list
+            if (!currentLanguages.supported.includes(selectedLanguage)) {
+              return {
+                ...agent,
+                languages: {
+                  ...currentLanguages,
+                  supported: [...currentLanguages.supported, selectedLanguage],
+                },
+              } as Agent;
+            }
+          }
+          return agent;
+        })
+      );
+    } else {
+      // Add to new agent
+      const currentSupported = newAgent.languages?.supported || [];
+      if (!currentSupported.includes(selectedLanguage)) {
+        setNewAgent((prev: any) => ({
+          ...prev,
+          languages: {
+            ...prev.languages,
+            supported: [...currentSupported, selectedLanguage],
+          },
+        }));
+      }
+    }
+  };
+
+  const handleRemoveSupportedLanguage = (language: string) => {
+    if (selectedAgentId) {
+      // Remove from existing agent
+      setAgents((prev) =>
+        prev.map((agent) => {
+          if (agent.id === selectedAgentId) {
+            const currentLanguages = agent.languages || {
+              primary: "en-IN",
+              supported: [],
+            };
+
+            return {
+              ...agent,
+              languages: {
+                ...currentLanguages,
+                supported: currentLanguages.supported.filter(
+                  (lang) => lang !== language
+                ),
+              },
+            } as Agent;
+          }
+          return agent;
+        })
+      );
+    } else {
+      // Remove from new agent
+      if (newAgent.languages?.supported) {
+        setNewAgent((prev: any) => ({
+          ...prev,
+          languages: {
+            ...prev.languages,
+            supported: prev.languages.supported.filter(
+              (lang: string) => lang !== language
+            ),
+          },
+        }));
+      }
     }
   };
 
@@ -350,6 +585,27 @@ const AgentConfiguration: React.FC = () => {
         startup_message:
           "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>Welcome message</prosody></speak>",
         prompt: "System prompt that defines agent behavior",
+        api_path: "",
+        prompt_file: "",
+        enabled: true,
+        voice_name: "",
+        languages: {
+          primary: "en-IN",
+          supported: ["en-IN"],
+        },
+        model_config: {
+          provider: "anthropic",
+          name: "claude-3-5-sonnet-20240620",
+          temperature: 0.5,
+        },
+        error_messages: {
+          error:
+            "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I apologize, I couldn't understand. Please try again.</prosody></speak>",
+          unclear_audio:
+            "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I couldn't hear you clearly. Could you please repeat?</prosody></speak>",
+          unsupported_language:
+            "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I'm sorry, but that language isn't supported. Please try another language.</prosody></speak>",
+        },
       });
 
       setEditMode(false);
@@ -378,12 +634,20 @@ const AgentConfiguration: React.FC = () => {
         description: agentToUpdate.description,
         startup_message: agentToUpdate.startup_message,
         prompt: agentToUpdate.prompt,
+        voice_name: agentToUpdate.voice_name,
+        languages: agentToUpdate.languages,
+        model_config: agentToUpdate.model_config,
+        error_messages: agentToUpdate.error_messages,
       });
 
       // Update the agents list with the updated agent
       const updatedAgentWithPrompt = {
         ...response.agent,
         prompt: agentToUpdate.prompt, // Keep the prompt from the form
+        voice_name: agentToUpdate.voice_name,
+        languages: agentToUpdate.languages,
+        model_config: agentToUpdate.model_config,
+        error_messages: agentToUpdate.error_messages,
       };
       setAgents((prev) =>
         prev.map((agent) =>
@@ -658,12 +922,9 @@ const AgentConfiguration: React.FC = () => {
                     <input
                       type="text"
                       name="name"
-                      value={
-                        selectedAgentId
-                          ? agents.find((a) => a.id === selectedAgentId)?.name
-                          : newAgent.name
-                      }
+                      value={selectedAgent?.name || newAgent.name}
                       onChange={handleInputChange}
+                      placeholder="Agent Name"
                       className="w-full px-3 py-2 border border-[#e7e2d3] rounded-md"
                     />
                   </div>
@@ -673,28 +934,22 @@ const AgentConfiguration: React.FC = () => {
                     </label>
                     <textarea
                       name="description"
-                      value={
-                        selectedAgentId
-                          ? agents.find((a) => a.id === selectedAgentId)
-                              ?.description
-                          : newAgent.description
-                      }
+                      value={selectedAgent?.description || newAgent.description}
                       onChange={handleInputChange}
-                      rows={3}
+                      placeholder="Agent Description"
+                      rows={2}
                       className="w-full px-3 py-2 border border-[#e7e2d3] rounded-md"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">
-                      Startup Message (SSML)
+                      Startup Message
                     </label>
                     <textarea
                       name="startup_message"
                       value={
-                        selectedAgentId
-                          ? agents.find((a) => a.id === selectedAgentId)
-                              ?.startup_message
-                          : newAgent.startup_message
+                        selectedAgent?.startup_message ||
+                        newAgent.startup_message
                       }
                       onChange={handleInputChange}
                       rows={4}
@@ -710,15 +965,225 @@ const AgentConfiguration: React.FC = () => {
                     </label>
                     <textarea
                       name="prompt"
-                      value={
-                        selectedAgentId
-                          ? agents.find((a) => a.id === selectedAgentId)?.prompt
-                          : newAgent.prompt
-                      }
+                      value={selectedAgent?.prompt || newAgent.prompt}
                       onChange={handleInputChange}
                       rows={6}
                       className="w-full px-3 py-2 border border-[#e7e2d3] rounded-md"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Voice Name
+                    </label>
+                    <input
+                      type="text"
+                      name="voice_name"
+                      value={selectedAgent?.voice_name || newAgent.voice_name}
+                      onChange={handleInputChange}
+                      placeholder="e.g., en-US-Wavenet-F"
+                      className="w-full px-3 py-2 border border-[#e7e2d3] rounded-md"
+                    />
+                    <p className="text-xs text-[#6c6c6c] mt-1">
+                      Specify the TTS voice name to use
+                    </p>
+                  </div>
+                  <div>
+                    <h3 className="text-md font-medium mb-2">
+                      Languages Configuration
+                    </h3>
+
+                    {/* Primary Language */}
+                    <div className="mb-3">
+                      <label className="block text-sm font-medium mb-1">
+                        Primary Language
+                      </label>
+                      <select
+                        value={selectedAgent?.languages?.primary || "en-IN"}
+                        onChange={(e) =>
+                          handleLanguagesChange("primary", e.target.value)
+                        }
+                        className="w-full px-3 py-2 border border-[#e7e2d3] rounded-md"
+                      >
+                        {systemConfig &&
+                          Object.values(systemConfig.language_codes).map(
+                            (code) => (
+                              <option key={code} value={code}>
+                                {code}
+                              </option>
+                            )
+                          )}
+                      </select>
+                    </div>
+
+                    {/* Supported Languages */}
+                    <div className="mb-3">
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="block text-sm font-medium">
+                          Supported Languages
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handleAddSupportedLanguage}
+                          className="text-xs px-2 py-1 bg-blue-500 text-white rounded"
+                        >
+                          + Add
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-2 p-2 border border-[#e7e2d3] rounded-md">
+                        {(
+                          selectedAgent?.languages?.supported ||
+                          newAgent.languages?.supported ||
+                          []
+                        ).map((lang: string) => (
+                          <div
+                            key={lang}
+                            className="bg-gray-100 px-2 py-1 rounded-full flex items-center"
+                          >
+                            <span className="text-sm mr-1">{lang}</span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleRemoveSupportedLanguage(lang)
+                              }
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-md font-medium mb-2">
+                      Model Configuration
+                    </h3>
+
+                    {/* Provider */}
+                    <div className="mb-3">
+                      <label className="block text-sm font-medium mb-1">
+                        Provider
+                      </label>
+                      <select
+                        value={
+                          selectedAgent?.model_config?.provider || "anthropic"
+                        }
+                        onChange={(e) =>
+                          handleModelConfigChange("provider", e.target.value)
+                        }
+                        className="w-full px-3 py-2 border border-[#e7e2d3] rounded-md"
+                      >
+                        <option value="anthropic">Anthropic</option>
+                        <option value="openai">OpenAI</option>
+                      </select>
+                    </div>
+
+                    {/* Model Name */}
+                    <div className="mb-3">
+                      <label className="block text-sm font-medium mb-1">
+                        Model Name
+                      </label>
+                      <input
+                        type="text"
+                        value={
+                          selectedAgent?.model_config?.name ||
+                          newAgent.model_config?.name ||
+                          "claude-3-5-sonnet-20240620"
+                        }
+                        onChange={(e) =>
+                          handleModelConfigChange("name", e.target.value)
+                        }
+                        placeholder="e.g., claude-3-5-sonnet-20240620 or gpt-4-turbo"
+                        className="w-full px-3 py-2 border border-[#e7e2d3] rounded-md"
+                      />
+                    </div>
+
+                    {/* Temperature */}
+                    <div className="mb-3">
+                      <label className="block text-sm font-medium mb-1">
+                        Temperature
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="1"
+                        step="0.1"
+                        value={
+                          selectedAgent?.model_config?.temperature ||
+                          newAgent.model_config?.temperature ||
+                          0.5
+                        }
+                        onChange={(e) =>
+                          handleModelConfigChange(
+                            "temperature",
+                            parseFloat(e.target.value) || 0
+                          )
+                        }
+                        className="w-full px-3 py-2 border border-[#e7e2d3] rounded-md"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-md font-medium mb-2">Error Messages</h3>
+
+                    {/* Error */}
+                    <div className="mb-3">
+                      <label className="block text-sm font-medium mb-1">
+                        General Error
+                      </label>
+                      <textarea
+                        value={selectedAgent?.error_messages?.error || ""}
+                        onChange={(e) =>
+                          handleErrorMessageChange("error", e.target.value)
+                        }
+                        rows={2}
+                        className="w-full px-3 py-2 border border-[#e7e2d3] rounded-md font-mono text-sm"
+                        placeholder="<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>Error message</prosody></speak>"
+                      />
+                    </div>
+
+                    {/* Unclear Audio */}
+                    <div className="mb-3">
+                      <label className="block text-sm font-medium mb-1">
+                        Unclear Audio
+                      </label>
+                      <textarea
+                        value={
+                          selectedAgent?.error_messages?.unclear_audio || ""
+                        }
+                        onChange={(e) =>
+                          handleErrorMessageChange(
+                            "unclear_audio",
+                            e.target.value
+                          )
+                        }
+                        rows={2}
+                        className="w-full px-3 py-2 border border-[#e7e2d3] rounded-md font-mono text-sm"
+                        placeholder="<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>Unclear audio message</prosody></speak>"
+                      />
+                    </div>
+
+                    {/* Unsupported Language */}
+                    <div className="mb-3">
+                      <label className="block text-sm font-medium mb-1">
+                        Unsupported Language
+                      </label>
+                      <textarea
+                        value={
+                          selectedAgent?.error_messages?.unsupported_language ||
+                          ""
+                        }
+                        onChange={(e) =>
+                          handleErrorMessageChange(
+                            "unsupported_language",
+                            e.target.value
+                          )
+                        }
+                        rows={2}
+                        className="w-full px-3 py-2 border border-[#e7e2d3] rounded-md font-mono text-sm"
+                        placeholder="<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>Unsupported language message</prosody></speak>"
+                      />
+                    </div>
                   </div>
                   <div className="flex justify-end space-x-2">
                     <button
@@ -732,6 +1197,27 @@ const AgentConfiguration: React.FC = () => {
                           startup_message:
                             "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>Welcome message</prosody></speak>",
                           prompt: "System prompt that defines agent behavior",
+                          api_path: "",
+                          prompt_file: "",
+                          enabled: true,
+                          voice_name: "",
+                          languages: {
+                            primary: "en-IN",
+                            supported: ["en-IN"],
+                          },
+                          model_config: {
+                            provider: "anthropic",
+                            name: "claude-3-5-sonnet-20240620",
+                            temperature: 0.5,
+                          },
+                          error_messages: {
+                            error:
+                              "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I apologize, I couldn't understand. Please try again.</prosody></speak>",
+                            unclear_audio:
+                              "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I couldn't hear you clearly. Could you please repeat?</prosody></speak>",
+                            unsupported_language:
+                              "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I'm sorry, but that language isn't supported. Please try another language.</prosody></speak>",
+                          },
                         });
                       }}
                       className="px-4 py-2 bg-gray-200 text-[#140d0c] rounded hover:bg-gray-300 transition-colors"
@@ -883,57 +1369,6 @@ const AgentConfiguration: React.FC = () => {
                       </tr>
                     )
                   )}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="config-section">
-              <h3>Model Configuration</h3>
-              <table className="data-table">
-                <tbody>
-                  <tr>
-                    <td>Model Name</td>
-                    <td>
-                      {editingSystemConfig ? (
-                        <input
-                          type="text"
-                          value={systemConfig.model_config.name}
-                          onChange={(e) =>
-                            handleSystemConfigChange(
-                              "model_config",
-                              "name",
-                              e.target.value
-                            )
-                          }
-                        />
-                      ) : (
-                        systemConfig.model_config.name
-                      )}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>Temperature</td>
-                    <td>
-                      {editingSystemConfig ? (
-                        <input
-                          type="number"
-                          min="0"
-                          max="1"
-                          step="0.1"
-                          value={systemConfig.model_config.temperature}
-                          onChange={(e) =>
-                            handleSystemConfigChange(
-                              "model_config",
-                              "temperature",
-                              parseFloat(e.target.value)
-                            )
-                          }
-                        />
-                      ) : (
-                        systemConfig.model_config.temperature
-                      )}
-                    </td>
-                  </tr>
                 </tbody>
               </table>
             </div>
