@@ -114,7 +114,7 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ stream, label }) => {
       </div>
       <canvas
         ref={canvasRef}
-        className="w-full h-[120px] bg-foreground/5 rounded-md border border-border"
+        className="w-full h-[160px] bg-foreground/5 rounded-md border border-border"
       />
     </div>
   );
@@ -174,8 +174,8 @@ export const BallVisualizer: React.FC<BallVisualizerProps> = ({
 
       // Calculate radius based on audio amplitude
       // Mapping average amplitude (usually between 0 and 1) to radius values
-      const minRadius = 60;
-      const maxRadius = 100;
+      const minRadius = 80;
+      const maxRadius = 140;
       const targetRadius = minRadius + average * (maxRadius - minRadius);
 
       // Apply smoothing
@@ -214,7 +214,7 @@ export const BallVisualizer: React.FC<BallVisualizerProps> = ({
 
   return (
     <div className="ballVisualizer">
-      <canvas ref={canvasRef} className="canvas" />
+      <canvas ref={canvasRef} className="canvas min-h-[180px]" />
     </div>
   );
 };
@@ -302,7 +302,7 @@ export const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
       // Draw outer glow
       const centerX = rect.width / 2;
       const centerY = rect.height / 2;
-      const maxRadius = Math.min(rect.width, rect.height) / 3;
+      const maxRadius = Math.min(rect.width, rect.height) / 2.5;
       const radius = maxRadius * (0.5 + normalizedVolume * 0.5);
 
       // Create gradient for glow
@@ -357,7 +357,7 @@ export const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
           // Draw inactive circle
           const centerX = rect.width / 2;
           const centerY = rect.height / 2;
-          const radius = Math.min(rect.width, rect.height) / 6;
+          const radius = Math.min(rect.width, rect.height) / 5;
 
           ctx.beginPath();
           ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
@@ -377,7 +377,7 @@ export const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
   return (
     <canvas
       ref={canvasRef}
-      className="w-full h-full rounded-full"
+      className="w-full h-full rounded-full min-h-[200px]"
       style={{ background: "rgba(26, 19, 16, 1)" }}
     />
   );

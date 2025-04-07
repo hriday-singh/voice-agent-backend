@@ -842,7 +842,7 @@ const AgentConfiguration: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center">
           <AnimatedLogo
-            gifSrc="/assets/caw-tech-logo.gif"
+            gifSrc="/assets/caw-tech-logo.svg"
             fallbackSrc="/assets/caw-tech-logo.svg"
             alt="Loading..."
             height={64}

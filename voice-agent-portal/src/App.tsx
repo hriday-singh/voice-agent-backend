@@ -81,7 +81,7 @@ const App: React.FC = () => {
                 >
                   <h1 className="text-xl font-semibold flex items-center">
                     <AnimatedLogo
-                      gifSrc="/assets/caw-tech-logo.gif"
+                      gifSrc="/assets/caw-tech-logo.svg"
                       fallbackSrc="/assets/caw-tech-logo.svg"
                       alt="CAW Tech Logo"
                       height={40}

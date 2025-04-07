@@ -68,11 +68,11 @@ const VoiceAgentPage: React.FC = () => {
         {!selectedAgent && (
           <div className="flex items-center justify-center mb-6">
             <AnimatedLogo
-              gifSrc="/assets/caw-tech-logo.gif"
+              gifSrc="/assets/caw-tech-logo.svg"
               fallbackSrc="/assets/caw-tech-logo.svg"
               alt="CAW Tech Logo"
-              height={80}
-              width={80}
+              height={100}
+              width={100}
               className="object-contain cursor-pointer"
               onClick={handleBackToSelection}
             />

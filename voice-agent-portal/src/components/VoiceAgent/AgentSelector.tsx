@@ -86,7 +86,7 @@ const AgentSelector: React.FC = () => {
             <div className="col-span-2 flex justify-center items-center py-12">
               <div className="flex flex-col items-center">
                 <AnimatedLogo
-                  gifSrc="/assets/caw-tech-logo.gif"
+                  gifSrc="/assets/caw-tech-logo.svg"
                   fallbackSrc="/assets/caw-tech-logo.svg"
                   alt="Loading..."
                   height={64}

@@ -17,17 +17,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 240px;
+  min-height: 300px;
   width: 100%;
-  padding: 10px;
+  padding: 20px;
   background: transparent;
   border-radius: 0;
 }
 
 .ballVisualizer {
   position: relative;
-  width: 240px;
-  height: 240px;
+  width: 300px;
+  height: 300px;
   margin: 0 auto;
 }
 
@@ -124,4 +124,29 @@
 .debug pre {
   white-space: pre-wrap;
   word-break: break-all;
+}
+
+/* Responsive styles for mobile */
+@media (max-width: 768px) {
+  .visualizersContainer {
+    min-height: 280px;
+    padding: 15px;
+  }
+
+  .ballVisualizer {
+    width: 260px;
+    height: 260px;
+  }
+}
+
+@media (max-width: 480px) {
+  .visualizersContainer {
+    min-height: 240px;
+    padding: 10px;
+  }
+
+  .ballVisualizer {
+    width: 220px;
+    height: 220px;
+  }
 }
