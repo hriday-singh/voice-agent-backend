@@ -79,6 +79,11 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
       const pc = new RTCPeerConnection({
         iceServers: [
           {
+            urls: ["stun:40.192.23.46:3478", "turn:40.192.23.46:3478"],
+            username: "cawturnserver",
+            credential: "servercawturn",
+          },
+          {
             urls: "stun:stun.l.google.com:19302",
           },
         ],

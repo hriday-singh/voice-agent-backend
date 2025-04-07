@@ -33,8 +33,8 @@ rtc_configuration = {
     "iceServers": [
         {
             "urls": [
-                "stun:voice.caw.tech:3478",
-                "turn:voice.caw.tech:3478"
+                "stun:40.192.23.46:3478",
+                "turn:40.192.23.46:3478"
             ],
             "username": "cawturnserver",
             "credential": "servercawturn"
