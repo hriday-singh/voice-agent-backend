@@ -53,16 +53,16 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
       // Set the local stream for UI purposes
       setStream(micStream);
       setErrorMessage("");
+      console.log("Microphone setup successful");
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       setErrorMessage(`Failed to access microphone: ${errorMsg}`);
+      console.error("Microphone setup failed:", errorMsg);
     }
   };
 
   // Connect to voice agent
   const connectToAgent = async () => {
-    if (isConnecting || isConnected) return;
-
     // Double check we have a microphone stream
     if (!stream) {
       setErrorMessage("Please enable microphone first");
@@ -73,21 +73,17 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
     setIsConnecting(true);
 
     try {
-      if (peerConnectionRef.current) {
-        peerConnectionRef.current.close();
-        peerConnectionRef.current = null;
-      }
+      console.log("Connecting to agent...");
 
       // Create new RTCPeerConnection with STUN servers
-      // const pc = new RTCPeerConnection({
-      //   iceServers: [
-      //     {
-      //       urls: "stun:stun.l.google.com:19302",
-      //    },
-      //  ],
-      //   iceCandidatePoolSize: 0,
-      // });
-      const pc = new RTCPeerConnection();
+      const pc = new RTCPeerConnection({
+        iceServers: [
+          {
+            urls: "stun:stun.l.google.com:19302",
+          },
+        ],
+        iceCandidatePoolSize: 0,
+      });
       peerConnectionRef.current = pc;
 
       // Add audio tracks to the peer connection
@@ -97,6 +93,7 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
 
       // Handle incoming tracks (for audio output)
       pc.addEventListener("track", (evt) => {
+        console.log("Received remote track", evt);
         if (audioRef.current && audioRef.current.srcObject !== evt.streams[0]) {
           audioRef.current.srcObject = evt.streams[0];
           setOutputStream(evt.streams[0]);
@@ -114,38 +111,31 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
 
       // Construct the full WebRTC endpoint URL
       const webrtcEndpoint = `${API_BASE_URL}${apiPath}/webrtc/offer`;
+      console.log("Using WebRTC endpoint:", webrtcEndpoint);
 
       // Generate a random webrtc ID
+      webrtcIdRef.current = Math.random().toString(36).substring(7);
       const webrtc_id = Math.random().toString(36).substring(7);
 
       // Send ice candidates immediately
-      const iceCandidateQueue: RTCIceCandidate[] = [];
-      let remoteSet = false;
-
       pc.onicecandidate = ({ candidate }) => {
         if (candidate) {
-          if (!remoteSet) {
-            // Queue until remote SDP is set
-            iceCandidateQueue.push(candidate);
-          } else {
-            // Send immediately
-            sendIceCandidate(candidate);
-          }
+          console.log("Sending ICE candidate", candidate);
+          fetch(webrtcEndpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              candidate: candidate.toJSON(),
+              webrtc_id: webrtc_id,
+              type: "ice-candidate",
+            }),
+          });
         }
       };
 
-      const sendIceCandidate = (candidate: RTCIceCandidate) => {
-        fetch(webrtcEndpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            candidate: candidate.toJSON(),
-            webrtc_id: webrtc_id,
-            type: "ice-candidate",
-          }),
-        });
-      };
-
+      // Send initial offer immediately
+      console.log("Sending initial offer:", pc.localDescription);
+      console.log("Webrtc ID:", webrtc_id);
       const response = await fetch(webrtcEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -158,13 +148,8 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
 
       // Handle server response
       const serverResponse = await response.json();
+      console.log("Received server response:", serverResponse);
       await pc.setRemoteDescription(serverResponse);
-      remoteSet = true;
-      console.log("Server response:", serverResponse);
-      console.log("Sending queued ICE candidates");
-      // Send queued ICE candidates now
-      iceCandidateQueue.forEach(sendIceCandidate);
-      iceCandidateQueue.length = 0;
 
       // Setup data channel handlers
       dataChannel.onopen = () => {
@@ -182,6 +167,7 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
 
       // Connection state changes
       pc.onconnectionstatechange = () => {
+        console.log("Connection state:", pc.connectionState);
         if (pc.connectionState === "connected") {
           setIsConnected(true);
           setIsConnecting(false);
@@ -202,7 +188,10 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
       };
     } catch (error) {
       console.error("Error connecting:", error);
-      const errorMsg = "Credits exhausted. Please contact hello@caw.tech";
+      const errorMsg =
+        error instanceof Error
+          ? error.message
+          : "Failed to connect to voice agent";
       setErrorMessage(errorMsg);
       setAudioActive(false);
       setIsConnecting(false);
@@ -228,6 +217,7 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
   // Disconnect from voice agent
   const disconnectFromAgent = async () => {
     try {
+      console.log("Disconnecting from voice agent...");
       setErrorMessage("");
 
       // First set UI state to prevent user interaction during disconnect
@@ -247,8 +237,6 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
         dataChannelRef.current = null;
       }
 
-      webrtcIdRef.current = "";
-
       // Clean up audio element
       if (audioRef.current) {
         try {
@@ -258,6 +246,8 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
           console.error("Error cleaning up audio element:", e);
         }
       }
+
+      console.log("Successfully disconnected from voice agent");
     } catch (error) {
       console.error("Error disconnecting:", error);
       setErrorMessage("Error during disconnection. Please refresh the page.");
@@ -269,6 +259,8 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
     // Ensure proper cleanup on unmount
     return () => {
       try {
+        console.log("Component unmounting, cleaning up resources...");
+
         // Clean up audio element
         if (audioRef.current) {
           audioRef.current.pause();
@@ -280,6 +272,7 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
           stream.getTracks().forEach((track) => {
             try {
               track.stop();
+              console.log(`Stopped track: ${track.kind}`);
             } catch (e) {
               console.error(`Error stopping track ${track.kind}:`, e);
             }
@@ -295,6 +288,8 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
         if (dataChannelRef.current) {
           dataChannelRef.current.close();
         }
+
+        console.log("Resources cleaned up");
       } catch (e) {
         console.error("Error during cleanup:", e);
       }

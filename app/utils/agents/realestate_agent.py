@@ -103,6 +103,6 @@ stream = Stream(
     handler=ReplyOnPause(process_audio, algo_options=options, startup_fn=startup),
     modality="audio",
     mode="send-receive",
-    concurrency_limit=10,
+    concurrency_limit=20,
     rtc_configuration=rtc_configuration
 ) 
