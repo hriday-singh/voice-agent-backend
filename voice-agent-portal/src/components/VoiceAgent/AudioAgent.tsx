@@ -45,7 +45,7 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: false,
+          autoGainControl: true,
           sampleRate: 16000,
           channelCount: 1,
         },
