@@ -1215,7 +1215,7 @@ class GoogleSTT:
                 encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
                 sample_rate_hertz=8000,
                 enable_automatic_punctuation=True,
-                model='phone_call',  # Can be 'video', 'phone_call', 'command_and_search', etc.
+                model='default',  # Can be 'video', 'phone_call', 'command_and_search', etc.
                 language_code=primary_language_code,  # Use agent's primary language
                 alternative_language_codes=alternative_language_codes,  # Use agent's supported languages
                 enable_spoken_emojis=False,
