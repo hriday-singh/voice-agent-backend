@@ -30,7 +30,7 @@ conversation_id = None
 # Configure audio options
 options = AlgoOptions(
     audio_chunk_duration=audio_options.get("audio_chunk_duration", 0.6),
-    started_talking_threshold=audio_options.get("started_talking_threshold", 0.15),
+    started_talking_threshold=audio_options.get("started_talking_threshold", 0.25),
     speech_threshold=audio_options.get("speech_threshold", 0.5),
 )
 

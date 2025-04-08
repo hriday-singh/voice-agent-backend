@@ -30,7 +30,7 @@ conversation_id = None
 # Configure audio options
 options = AlgoOptions(
     audio_chunk_duration=audio_options.get("audio_chunk_duration", 0.6),
-    started_talking_threshold=audio_options.get("started_talking_threshold", 0.15),
+    started_talking_threshold=audio_options.get("started_talking_threshold", 0.25),
     speech_threshold=audio_options.get("speech_threshold", 0.5),
 )
 
@@ -126,7 +126,7 @@ stream = Stream(
         startup_fn=startup, 
         input_sample_rate=16000, 
         # output_sample_rate=16000, 
-        # can_interrupt=agent_config.get("can_interrupt", False)
+        can_interrupt=agent_config.get("can_interrupt", False)
     ),
     modality="audio",
     mode="send-receive",

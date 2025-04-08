@@ -161,7 +161,7 @@
   },
   "audio_options": {
     "audio_chunk_duration": 0.6,
-    "started_talking_threshold": 0.15,
+    "started_talking_threshold": 0.25,
     "speech_threshold": 0.5
   },
   "default_messages": {
