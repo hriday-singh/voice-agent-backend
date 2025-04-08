@@ -127,6 +127,36 @@ def get_agent_languages(agent_id: str) -> Dict[str, Any]:
         return {}
     return agent_config.get("languages", {})
 
+def get_agent_speech_context(agent_id: str) -> List[str]:
+    """
+    Get speech context phrases for a specific agent
+    
+    Args:
+        agent_id: ID of the agent
+        
+    Returns:
+        List of phrases to improve speech recognition, or empty list if not found
+    """
+    agent_config = get_agent_by_id(agent_id)
+    if not agent_config:
+        return []
+    return agent_config.get("speech_context", [])
+
+def get_agent_can_interrupt(agent_id: str) -> bool:
+    """
+    Get the interrupt setting for a specific agent
+    
+    Args:
+        agent_id: ID of the agent
+        
+    Returns:
+        Boolean indicating if the agent allows interruptions (default: False)
+    """
+    agent_config = get_agent_by_id(agent_id)
+    if not agent_config:
+        return False
+    return agent_config.get("can_interrupt", False)
+
 def get_agent_model_config(agent_id: str) -> Dict[str, Any]:
     """
     Get model configuration for a specific agent

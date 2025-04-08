@@ -26,6 +26,7 @@ interface Agent {
   api_path: string;
   prompt_file: string;
   enabled: boolean;
+  can_interrupt?: boolean;
   voice_name?: string;
   languages?: {
     primary: string;
@@ -96,6 +97,7 @@ const AgentConfiguration: React.FC = () => {
     api_path: "",
     prompt_file: "",
     enabled: true,
+    can_interrupt: false,
     voice_name: "",
     languages: {
       primary: "en-IN",
@@ -588,6 +590,7 @@ const AgentConfiguration: React.FC = () => {
         api_path: "",
         prompt_file: "",
         enabled: true,
+        can_interrupt: false,
         voice_name: "",
         languages: {
           primary: "en-IN",
@@ -1200,6 +1203,7 @@ const AgentConfiguration: React.FC = () => {
                           api_path: "",
                           prompt_file: "",
                           enabled: true,
+                          can_interrupt: false,
                           voice_name: "",
                           languages: {
                             primary: "en-IN",

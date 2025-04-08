@@ -1,14 +1,15 @@
 from app.utils.speech_service import get_stt_model, get_tts_model
 from app.utils.pipeline import Pipeline
-from app.utils.agent_config import get_agent_by_id
+from app.utils.agent_config import get_agent_by_id, get_audio_options
 from decouple import config
-from fastrtc import ReplyOnPause, AlgoOptions, Stream
+from fastrtc import ReplyOnPause, AlgoOptions, Stream, SileroVadOptions
 from uuid import uuid4
 import numpy as np
 
 
 # Get agent configuration
 agent_config = get_agent_by_id("hospital")
+audio_options = get_audio_options()
 
 # Initialize models
 stt_model = get_stt_model()
@@ -28,9 +29,9 @@ conversation_id = None
 
 # Configure audio options
 options = AlgoOptions(
-    audio_chunk_duration=agent_config.get("audio_chunk_duration", 0.8),
-    started_talking_threshold=agent_config.get("started_talking_threshold", 0.4),
-    speech_threshold=agent_config.get("speech_threshold", 0.7),
+    audio_chunk_duration=audio_options.get("audio_chunk_duration", 0.6),
+    started_talking_threshold=audio_options.get("started_talking_threshold", 0.15),
+    speech_threshold=audio_options.get("speech_threshold", 0.3),
 )
 
 rtc_configuration = {
@@ -114,7 +115,19 @@ def process_audio(audio):
 
 # Create Stream with ReplyOnPause
 stream = Stream(
-    handler=ReplyOnPause(process_audio, algo_options=options, startup_fn=startup),
+    handler=ReplyOnPause(
+        process_audio, 
+        model_options=SileroVadOptions(
+            threshold=0.5,               
+            min_speech_duration_ms=250,  
+            min_silence_duration_ms=600
+        ), 
+        algo_options=options, 
+        startup_fn=startup, 
+        input_sampling_rate=16000, 
+        output_sampling_rate=16000, 
+        can_interrupt=agent_config.get("can_interrupt", True)
+    ),
     modality="audio",
     mode="send-receive",
     concurrency_limit=20,

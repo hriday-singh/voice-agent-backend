@@ -45,7 +45,7 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true,
+          autoGainControl: false,
           sampleRate: 16000,
           channelCount: 1,
         },
@@ -54,7 +54,7 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
       // Set the local stream for UI purposes
       setStream(micStream);
       setErrorMessage("");
-      console.log("Microphone setup successful");
+      // console.log("Microphone setup successful");
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       setErrorMessage(`Failed to access microphone: ${errorMsg}`);

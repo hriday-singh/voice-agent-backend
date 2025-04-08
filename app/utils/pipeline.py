@@ -176,8 +176,8 @@ Do NOT use any other language in your response.
             SystemMessage(content=system_prompt),  # Always include system prompt first
         ]
         
-        # Add conversation history (limited to last 10 exchanges for efficiency)
-        recent_history = history[-10:] if len(history) > 10 else history
+        # Add conversation history (limited to last 20 exchanges for efficiency)
+        recent_history = history[-20:] if len(history) > 20 else history
         for msg in recent_history:
             if msg["role"] == "user":
                 messages.append(HumanMessage(content=msg["content"]))

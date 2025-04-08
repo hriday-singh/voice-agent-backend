@@ -237,6 +237,9 @@ async def create_agent(
     - description: Brief description of the agent
     - startup_message: SSML message to play when connection starts
     - prompt: System prompt text for the agent
+    
+    Optional fields:
+    - can_interrupt: Whether the agent can be interrupted by the user (default: false)
     """
     check_admin_authorization(token_data)
     
@@ -270,7 +273,8 @@ async def create_agent(
         "api_path": f"/api/voice-agents/stream?agent_type={agent_id}",
         "startup_message": agent_data["startup_message"],
         "prompt_file": prompt_file_path,
-        "enabled": True
+        "enabled": True,
+        "can_interrupt": agent_data.get("can_interrupt", False)
     }
     
     # Update configuration
@@ -298,6 +302,7 @@ async def update_agent(
     - startup_message: SSML message to play when connection starts
     - prompt: System prompt text for the agent
     - enabled: Whether the agent is enabled (boolean)
+    - can_interrupt: Whether the agent can be interrupted (boolean)
     """
     check_admin_authorization(token_data)
     
@@ -313,7 +318,7 @@ async def update_agent(
     current_agent = config["agents"][agent_id]
     
     # Update fields
-    valid_fields = ["name", "description", "startup_message", "prompt", "enabled"]
+    valid_fields = ["name", "description", "startup_message", "prompt", "enabled", "can_interrupt"]
     for field in valid_fields:
         if field in agent_data:
             # Special handling for the prompt field

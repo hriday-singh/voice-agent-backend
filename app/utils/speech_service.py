@@ -4,7 +4,7 @@ import numpy as np
 import os
 import re
 from dotenv import load_dotenv
-from typing import Generator, Tuple, Protocol, BinaryIO, Optional
+from typing import Generator, Tuple, Protocol, BinaryIO, Optional, Dict, Any, List
 import io
 import wave
 from datetime import datetime
@@ -16,7 +16,10 @@ import pydub
 from google.cloud import texttospeech
 from google.cloud import speech
 import logging
-from app.utils.agent_config import get_agent_languages
+from app.utils.agent_config import get_agent_languages, get_agent_speech_context
+import json
+from config import settings
+from abc import ABC, abstractmethod
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -1149,13 +1152,15 @@ class GoogleSTT:
             
             # Map our language format to Google BCP-47 codes
             self.language_map = {
-                'hindi': 'hi-IN',
                 'english': 'en-IN',
+                'hindi': 'hi-IN',
+                'telugu': 'te-IN',
                 'tamil': 'ta-IN',
-                'telugu': 'te-IN'
+                'bengali': 'bn-IN',
+                'unknown': 'en-IN'  # Default to English for unknown languages
             }
             
-            # Reverse mapping for response handling
+            # Reverse mapping for detection
             self.reverse_language_map = {v: k for k, v in self.language_map.items()}
             
         except Exception as e:
@@ -1179,7 +1184,7 @@ class GoogleSTT:
             
             # Default language settings
             primary_language_code = 'en-IN'
-            alternative_language_codes = ['hi-IN', 'ta-IN', 'te-IN']
+            alternative_language_codes = ['hi-IN', 'en-IN', 'te-IN']
             
             # If agent_type is provided, get agent-specific language settings
             if agent_type:
@@ -1192,16 +1197,33 @@ class GoogleSTT:
                     supported_languages = agent_languages.get("supported", [])
                     alternative_language_codes = [lang for lang in supported_languages if lang != primary_language_code]
             
+            # Get agent-specific speech context phrases if available
+            speech_context_phrases = []
+            if agent_type:
+                speech_context_phrases = get_agent_speech_context(agent_type)
+            
+            # Configure speech contexts with agent-specific phrases if available
+            speech_contexts = []
+            if speech_context_phrases:
+                speech_contexts = [
+                    speech.SpeechContext(
+                        phrases=speech_context_phrases,
+                        boost=10  # Adjust boost as needed
+                    )
+                ]
+            
             # Configure the recognition settings
             config = speech.RecognitionConfig(
                 encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-                sample_rate_hertz=48000,
+                sample_rate_hertz=16000,
                 enable_automatic_punctuation=True,
-                model='default',  # Can be 'video', 'phone_call', 'command_and_search', etc.
+                model='latest_long',  # Can be 'video', 'phone_call', 'command_and_search', etc.
                 language_code=primary_language_code,  # Use agent's primary language
                 alternative_language_codes=alternative_language_codes,  # Use agent's supported languages
-                enable_spoken_punctuation=True,
                 enable_spoken_emojis=False,
+                use_enhanced=True,
+                audio_channel_count=1,
+                speech_contexts=speech_contexts,
             )
             # Perform the transcription
             response = self.client.recognize(config=config, audio=audio)
