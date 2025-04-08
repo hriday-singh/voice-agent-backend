@@ -73,8 +73,8 @@
         "sahayam"
       ],
       "model_config": {
-        "provider": "anthropic",
-        "name": "claude-3-7-sonnet-20250219",
+        "provider": "openai",
+        "name": "gpt-4o",
         "temperature": 0.7
       },
       "error_messages": {
@@ -141,8 +141,8 @@
         "madad"
       ],
       "model_config": {
-        "provider": "anthropic",
-        "name": "claude-3-7-sonnet-20250219",
+        "provider": "openai",
+        "name": "gpt-4o",
         "temperature": 0.7
       },
       "error_messages": {
@@ -162,7 +162,7 @@
   "audio_options": {
     "audio_chunk_duration": 0.6,
     "started_talking_threshold": 0.15,
-    "speech_threshold": 0.4
+    "speech_threshold": 0.3
   },
   "default_messages": {
     "error": "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I apologize, I couldn't understand. Please try again.</prosody></speak>",
