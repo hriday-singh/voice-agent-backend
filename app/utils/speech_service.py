@@ -280,7 +280,6 @@ class STTWrapper:
         else:
             sample_rate = self.audio_processor.sample_rate
             audio_data = audio_frame
-        
         # Convert to WAV format
         wav_data = self.audio_processor.numpy_to_wav(audio_data, sample_rate)
         

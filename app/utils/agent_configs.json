@@ -15,7 +15,7 @@
       "model_config": {
         "provider": "anthropic",
         "name": "claude-3-5-sonnet-20240620",
-        "temperature": 0.5
+        "temperature": 0.7
       },
       "error_messages": {
         "error": "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I apologize, I couldn't understand your real estate query. Please try again.</prosody></speak>",
@@ -41,9 +41,9 @@
         "temperature": 0.7
       },
       "error_messages": {
-        "error": "<speak xml:lang='hi-IN'><prosody rate='medium' pitch='0%'>I apologize, I couldn't understand your medical query. Please try again.</prosody></speak>",
-        "unclear_audio": "<speak xml:lang='hi-IN'><prosody rate='medium' pitch='0%'>I couldn't hear your medical request clearly. Could you please repeat?</prosody></speak>",
-        "unsupported_language": "<speak xml:lang='hi-IN'><prosody rate='medium' pitch='0%'>I'm sorry, but that language isn't supported for hospital inquiries. Please use English or Hindi.</prosody></speak>"
+        "error": "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I apologize, I couldn't understand. Please try again.</prosody></speak>",
+        "unclear_audio": "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I couldn't hear you clearly. Could you please repeat?</prosody></speak>",
+        "unsupported_language": "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I'm sorry, but that language isn't supported for hospital inquiries. Please use English or Hindi.</prosody></speak>"
       }
     }
   },
