@@ -123,8 +123,8 @@ stream = Stream(
         ), 
         algo_options=options, 
         startup_fn=startup, 
-        input_sampling_rate=16000, 
-        output_sampling_rate=16000, 
+        input_sample_rate=16000, 
+        output_sample_rate=16000, 
         can_interrupt=agent_config.get("can_interrupt", True)
     ),
     modality="audio",
