@@ -83,7 +83,63 @@ async def access_agent(
     token_data: TokenData = Depends(get_token_data)
 ):
     """
-    Access an agent and record the usage (decrements OTP uses if applicable)
+    Access an agent without decrementing OTP uses
+    """
+    # Check if the agent type is valid using the configuration
+    agent_config = get_agent_by_id(agent_data.agent_type)
+    if not agent_config:
+        valid_agent_types = get_agent_config().get("agents", {}).keys()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid agent type. Available types: {list(valid_agent_types)}"
+        )
+    
+    # Check if the agent is enabled
+    if agent_config.get("enabled", True) is False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Agent '{agent_data.agent_type}' is currently disabled"
+        )
+    
+    # For OTP users, check if OTP is still valid but don't decrement
+    if token_data.user_type == "otp":
+        with get_db() as conn:
+            otp = get_otp_by_code(conn, token_data.otp_code)
+            
+            if not otp:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid OTP",
+                )
+            
+            # Check if OTP has expired
+            if otp['expires_at'] and otp['expires_at'] < datetime.utcnow():
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="OTP has expired",
+                )
+            
+            if otp['is_used'] or otp['remaining_uses'] <= 0:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="OTP has been exhausted",
+                )
+            
+            # Get remaining uses without decrementing
+            remaining_uses = otp['remaining_uses']
+    
+    return {
+        "message": f"Access granted to {agent_data.agent_type} agent",
+        "remaining_uses": remaining_uses if token_data.user_type == "otp" else None
+    }
+
+@router.post("/connect", status_code=status.HTTP_200_OK)
+async def connect_agent(
+    agent_data: AgentUsage,
+    token_data: TokenData = Depends(get_token_data)
+):
+    """
+    Connect to an agent and record the usage (decrements OTP uses if applicable)
     """
     # Check if the agent type is valid using the configuration
     agent_config = get_agent_by_id(agent_data.agent_type)
@@ -139,6 +195,6 @@ async def access_agent(
             remaining_uses = updated_otp['remaining_uses'] if updated_otp else 0
     
     return {
-        "message": f"Access granted to {agent_data.agent_type} agent",
+        "message": f"Connected to {agent_data.agent_type} agent",
         "remaining_uses": remaining_uses if token_data.user_type == "otp" else None
     } 

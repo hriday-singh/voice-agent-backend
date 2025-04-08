@@ -29,6 +29,7 @@ export const OTP_REQUEST_ENDPOINTS = {
 export const AGENT_ENDPOINTS = {
   LIST: "/agents/list",
   ACCESS: "/agents/access",
+  CONNECT: "/agents/connect",
 };
 
 // Admin Agent endpoints

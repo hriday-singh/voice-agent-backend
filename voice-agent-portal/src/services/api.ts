@@ -311,6 +311,50 @@ export const accessVoiceAgent = async (
   }
 };
 
+// Connect to a voice agent (decrements OTP uses)
+export const connectVoiceAgent = async (
+  agentType: string
+): Promise<{
+  success: boolean;
+  message?: string;
+  remainingUses?: number;
+  error?: string;
+}> => {
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      return {
+        success: false,
+        error: "Not authenticated",
+      };
+    }
+
+    const response = await api.post(
+      AGENT_ENDPOINTS.CONNECT,
+      { agent_type: agentType },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    return {
+      success: true,
+      message: response.data.message,
+      remainingUses: response.data.remaining_uses,
+    };
+  } catch (error: any) {
+    if (error.response?.status === 401) {
+      localStorage.removeItem("token");
+      return {
+        success: false,
+        error: "OTP is no longer valid. Please request a new one.",
+      };
+    }
+    return {
+      success: false,
+      error: error.response?.data?.detail || "Failed to connect to voice agent",
+    };
+  }
+};
+
 // Fetch OTP requests (admin only)
 export const fetchOTPRequests = async (
   status: string | null = null,

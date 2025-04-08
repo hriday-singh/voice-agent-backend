@@ -4,6 +4,7 @@ import { BsMicFill, BsMicMuteFill } from "react-icons/bs";
 import { IoArrowBack } from "react-icons/io5";
 import { IconWrapper } from "./IconWrapper";
 import { API_BASE_URL } from "../../config/api";
+import { connectVoiceAgent } from "../../services/api";
 import "./AudioAgent.css";
 
 interface AudioAgentProps {
@@ -83,9 +84,6 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
             username: "cawturnserver",
             credential: "servercawturn",
           },
-          {
-            urls: "stun:stun.l.google.com:19302",
-          },
         ],
         iceCandidatePoolSize: 0,
       });
@@ -116,7 +114,7 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
 
       // Construct the full WebRTC endpoint URL
       const webrtcEndpoint = `${API_BASE_URL}${apiPath}/webrtc/offer`;
-      console.log("Using WebRTC endpoint:", webrtcEndpoint);
+      // console.log("Using WebRTC endpoint:", webrtcEndpoint);
 
       // Generate a random webrtc ID
       webrtcIdRef.current = Math.random().toString(36).substring(7);
@@ -125,7 +123,7 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
       // Send ice candidates immediately
       pc.onicecandidate = ({ candidate }) => {
         if (candidate) {
-          console.log("Sending ICE candidate", candidate);
+          // console.log("Sending ICE candidate", candidate);
           fetch(webrtcEndpoint, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -139,8 +137,8 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
       };
 
       // Send initial offer immediately
-      console.log("Sending initial offer:", pc.localDescription);
-      console.log("Webrtc ID:", webrtc_id);
+      // console.log("Sending initial offer:", pc.localDescription);
+      // console.log("Webrtc ID:", webrtc_id);
       const response = await fetch(webrtcEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -153,7 +151,7 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
 
       // Handle server response
       const serverResponse = await response.json();
-      console.log("Received server response:", serverResponse);
+      // console.log("Received server response:", serverResponse);
       await pc.setRemoteDescription(serverResponse);
 
       // Setup data channel handlers
@@ -191,6 +189,14 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
       pc.oniceconnectionstatechange = () => {
         console.log("ICE connection state:", pc.iceConnectionState);
       };
+
+      // Call the connect endpoint to decrement OTP uses
+      const connectResult = await connectVoiceAgent(agentId);
+      if (!connectResult.success) {
+        setErrorMessage(connectResult.error || "Failed to connect to agent");
+        setIsConnecting(false);
+        return;
+      }
     } catch (error) {
       console.error("Error connecting:", error);
       const errorMsg =
