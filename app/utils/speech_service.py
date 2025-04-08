@@ -1206,7 +1206,7 @@ class GoogleSTT:
                 speech_contexts = [
                     speech.SpeechContext(
                         phrases=speech_context_phrases,
-                        boost=10  # Adjust boost as needed
+                        boost=5  # Adjust boost as needed
                     )
                 ]
             
@@ -1225,6 +1225,8 @@ class GoogleSTT:
             )
             # Perform the transcription
             response = self.client.recognize(config=config, audio=audio)
+
+            logger.info("response",response)
             
             if not response.results:
                 logger.error("No results from Google STT")

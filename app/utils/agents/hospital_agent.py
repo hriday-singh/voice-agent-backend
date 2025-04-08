@@ -117,11 +117,11 @@ def process_audio(audio):
 stream = Stream(
     handler=ReplyOnPause(
         process_audio, 
-        model_options=SileroVadOptions(
-            threshold=0.5,               
-            min_speech_duration_ms=250,  
-            min_silence_duration_ms=1500
-        ), 
+        # model_options=SileroVadOptions(
+        #     threshold=0.5,               
+        #     min_speech_duration_ms=250,  
+        #     min_silence_duration_ms=1500
+        # ), 
         algo_options=options, 
         startup_fn=startup, 
         input_sample_rate=16000, 
@@ -130,6 +130,6 @@ stream = Stream(
     ),
     modality="audio",
     mode="send-receive",
-    concurrency_limit=20,
+    concurrency_limit=5,
     rtc_configuration=rtc_configuration
 ) 
