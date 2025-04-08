@@ -38,7 +38,7 @@
       "model_config": {
         "provider": "anthropic",
         "name": "claude-3-5-sonnet-20240620",
-        "temperature": 0.5
+        "temperature": 0.7
       },
       "error_messages": {
         "error": "<speak xml:lang='hi-IN'><prosody rate='medium' pitch='0%'>I apologize, I couldn't understand your medical query. Please try again.</prosody></speak>",

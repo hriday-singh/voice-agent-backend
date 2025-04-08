@@ -112,7 +112,10 @@ def create_agent(agent_type: AgentType):
     # Get agent-specific model configuration
     model_config = get_agent_model_config(agent_type)
     model_name = model_config.get("name", "claude-3-5-sonnet-20240620")
-    temperature = model_config.get("temperature", 0.5)
+    temperature = model_config.get("temperature", 0.7)
+    # Slightly higher temperature helps with handling unclear input
+    if temperature < 0.6:
+        temperature = 0.6
     provider = model_config.get("provider", "anthropic")
     
     # Initialize the LLM with model settings from config
@@ -147,6 +150,26 @@ def create_agent(agent_type: AgentType):
         
         # Load appropriate system prompt
         system_prompt = load_prompt(current_agent_type)
+        
+        # Enhanced instruction for handling unclear input
+        unclear_input_instruction = """
+IMPORTANT: The speech-to-text transcription may sometimes produce unclear or incomplete text. 
+When you receive input that seems unclear:
+1. Look for keywords related to our services
+2. Use conversation context to infer the likely meaning
+3. Make reasonable assumptions based on common queries in this domain
+4. When uncertain, respond to what you understood and ask for clarification
+5. Be patient and helpful, even with fragmented or unclear queries
+"""
+        # system_prompt = system_prompt + "\n" + unclear_input_instruction
+        
+        # Add language enforcement instruction for the current detected language
+        lang_instruction = f"""
+IMPORTANT LANGUAGE INSTRUCTION: The user is speaking in {state["detected_language"]}. 
+ALWAYS respond ONLY in {state["detected_language"]}. 
+Do NOT use any other language in your response.
+"""
+        # system_prompt = system_prompt + "\n" + lang_instruction
         
         # Prepare messages with system prompt and conversation history
         messages = [
@@ -226,6 +249,7 @@ class Pipeline:
         self.agent_type = agent_type
         self.agent = create_agent(agent_type)
         self.conversation_histories = {}  # Store histories for each conversation
+        self.current_language = {}  # Store current language for each conversation
         
     def get_error_message(self, error_type: str) -> str:
         """Get agent-specific error message
@@ -253,15 +277,10 @@ class Pipeline:
         Returns:
             dict: Contains response text and other metadata
         """
-        # Check for empty or unclear input
-        if not text or len(text.strip()) < 2:
-            return {
-                "response": self.get_error_message("unclear_audio"),
-                "conversation_id": conversation_id,
-                "detected_language": detected_language,
-                "agent_type": self.agent_type
-            }
-        
+        # Process extremely short inputs but add a note about it rather than rejecting
+        if text and len(text.strip()) < 3:
+            text = f"{text} [Note: Very short input received, attempting to process]"
+            
         # Get existing history or initialize new one
         conversation_key = f"{conversation_id}_{self.agent_type}"
         history = self.conversation_histories.get(conversation_key, [])
@@ -293,7 +312,7 @@ class Pipeline:
         except Exception as e:
             # Return error message on failure
             return {
-                "response": self.get_error_message("error"),
+                "response": self.get_error_message("error", detected_language),
                 "conversation_id": conversation_id,
                 "detected_language": detected_language,
                 "agent_type": self.agent_type,
@@ -309,3 +328,37 @@ class Pipeline:
         conversation_key = f"{conversation_id}_{self.agent_type}"
         if conversation_key in self.conversation_histories:
             del self.conversation_histories[conversation_key]
+        if conversation_key in self.current_language:
+            del self.current_language[conversation_key]
+
+# For testing the pipeline directly
+if __name__ == "__main__":
+    print("Interactive test mode. Type 'exit' to quit.")
+    print("Available agent types: realestate, hospital")
+    
+    agent_type = input("Select agent type [realestate/hospital]: ").lower()
+    if agent_type not in ["realestate", "hospital"]:
+        agent_type = "realestate"
+        print(f"Using default agent type: {agent_type}")
+    
+    language = input("Select language [english/hindi/telugu/tamil]: ").lower()
+    if language not in LANGUAGE_CODES:
+        language = "english"
+        print(f"Using default language: {language}")
+    
+    # Create pipeline with selected agent type
+    pipeline = Pipeline(agent_type=agent_type)
+    conversation_id = "test"
+    
+    while True:
+        user_input = input("You: ")
+        if user_input.lower() == "exit":
+            break
+            
+        result = pipeline.process(
+            text=user_input,
+            conversation_id=conversation_id,
+            detected_language=language
+        )
+        
+        print(f"Bot [{agent_type}]: {result['response']}")
