@@ -115,11 +115,11 @@ def process_audio(audio):
 stream = Stream(
     handler=ReplyOnPause(
         process_audio, 
-        model_options=SileroVadOptions(
-            threshold=0.3,               
-            min_speech_duration_ms=200,  
-            min_silence_duration_ms=1500
-        ), 
+        # model_options=SileroVadOptions(
+        #     threshold=0.3,               
+        #     min_speech_duration_ms=200,  
+        #     min_silence_duration_ms=1500
+        # ), 
         algo_options=options, 
         startup_fn=startup, 
         input_sample_rate=8000, 
