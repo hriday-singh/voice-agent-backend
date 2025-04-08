@@ -162,7 +162,7 @@
   "audio_options": {
     "audio_chunk_duration": 0.6,
     "started_talking_threshold": 0.15,
-    "speech_threshold": 0.3
+    "speech_threshold": 0.5
   },
   "default_messages": {
     "error": "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I apologize, I couldn't understand. Please try again.</prosody></speak>",

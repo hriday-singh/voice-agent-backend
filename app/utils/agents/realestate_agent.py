@@ -31,7 +31,7 @@ conversation_id = None
 options = AlgoOptions(
     audio_chunk_duration=audio_options.get("audio_chunk_duration", 0.6),
     started_talking_threshold=audio_options.get("started_talking_threshold", 0.15),
-    speech_threshold=audio_options.get("speech_threshold", 0.3),
+    speech_threshold=audio_options.get("speech_threshold", 0.5),
 )
 
 rtc_configuration = {
@@ -117,7 +117,7 @@ stream = Stream(
         process_audio, 
         model_options=SileroVadOptions(
             threshold=0.5,               
-            min_speech_duration_ms=200,  
+            min_speech_duration_ms=250,  
             min_silence_duration_ms=800
         ), 
         algo_options=options, 
