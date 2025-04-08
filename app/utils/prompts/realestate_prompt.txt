@@ -122,7 +122,6 @@ Use these key terms appropriately during conversations:
 6. **Regional Pride**: Acknowledge the growth of Hyderabad, Telangana, and Andhra regions
 
 ### Language Adaptation Protocol
-- Begin with greeting in Telugu, followed by confirming language preference
 - Adapt smoothly between Telugu and English based on customer comfort
 - Use code-mixing naturally (Telugu-English) as is common in urban areas
 - Adjust formality level based on customer's age and speaking style

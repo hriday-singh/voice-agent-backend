@@ -10,7 +10,7 @@
       "voice_name": "te-IN-Standard-A",
       "can_interrupt": false,
       "languages": {
-        "primary": "en-IN",
+        "primary": "te-IN",
         "supported": ["en-IN", "te-IN", "hi-IN"]
       },
       "speech_context": [
