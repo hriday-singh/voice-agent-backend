@@ -21,7 +21,7 @@ LANGUAGE_CODES = get_language_codes()
 # Get model configuration from central config
 # MODEL_CONFIG = get_model_config()
 # MODEL_NAME = MODEL_CONFIG.get("name", "gpt-4o")
-MODEL_NAME = "claude-3-7-sonnet-20250219"
+MODEL_NAME = "claude-3-5-sonnet-20240620"
 TEMPERATURE = 0.7
 
 class ConversationState(TypedDict):
