@@ -17,8 +17,6 @@ from google.cloud import texttospeech
 from google.cloud import speech
 import logging
 from app.utils.agent_config import get_agent_languages, get_agent_speech_context
-import json
-from config import settings
 from abc import ABC, abstractmethod
 
 logging.basicConfig(level=logging.INFO)
