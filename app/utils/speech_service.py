@@ -221,6 +221,7 @@ class AudioProcessor:
         audio_path = self.audio_dir / f"tts_output_{timestamp}.wav"
         with open(audio_path, "wb") as f:
             f.write(audio_data)
+            logger.info(f"Saved audio to {audio_path}")
         return str(audio_path)
 
 class MP3AudioProcessor:
@@ -286,6 +287,9 @@ class STTWrapper:
         
         # Create file-like object
         audio_file = io.BytesIO(wav_data)
+
+        # Save the audio file
+        self.audio_processor.save_audio(wav_data)
         
         # Transcribe with agent type if available
         transcript, detected_language = self.provider.transcribe(audio_file, self.current_agent_type)
