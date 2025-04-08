@@ -1227,6 +1227,7 @@ class GoogleSTT:
             response = self.client.recognize(config=config, audio=audio)
             
             if not response.results:
+                logger.error("No results from Google STT")
                 return "", "unknown"
             
             # Get the transcript from the first result

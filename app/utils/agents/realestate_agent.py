@@ -116,7 +116,7 @@ stream = Stream(
     handler=ReplyOnPause(
         process_audio, 
         model_options=SileroVadOptions(
-            threshold=0.5,               
+            threshold=0.4,               
             min_speech_duration_ms=250,  
             min_silence_duration_ms=800
         ), 
@@ -124,7 +124,7 @@ stream = Stream(
         startup_fn=startup, 
         input_sample_rate=16000, 
         # output_sample_rate=16000, 
-        # can_interrupt=agent_config.get("can_interrupt", False)
+        can_interrupt=agent_config.get("can_interrupt", False)
     ),
     modality="audio",
     mode="send-receive",
