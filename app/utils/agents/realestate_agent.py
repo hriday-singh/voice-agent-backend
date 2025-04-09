@@ -2,7 +2,7 @@ from app.utils.speech_service import get_stt_model, get_tts_model
 from app.utils.pipeline import Pipeline
 from app.utils.agent_config import get_agent_by_id, get_audio_options
 from decouple import config
-from fastrtc import ReplyOnPause, AlgoOptions, Stream
+from fastrtc import ReplyOnPause, AlgoOptions, Stream, SileroVadOptions
 from uuid import uuid4
 import numpy as np
 
@@ -29,9 +29,9 @@ conversation_id = None
 
 # Configure audio options
 options = AlgoOptions(
-    audio_chunk_duration=audio_options.get("audio_chunk_duration", 0.8),
-    started_talking_threshold=audio_options.get("started_talking_threshold", 0.3),
-    speech_threshold=audio_options.get("speech_threshold", 0.7),
+    audio_chunk_duration=audio_options.get("audio_chunk_duration", 0.6),
+    started_talking_threshold=audio_options.get("started_talking_threshold", 0.25),
+    speech_threshold=audio_options.get("speech_threshold", 0.5),
 )
 
 rtc_configuration = {
@@ -116,6 +116,11 @@ stream = Stream(
     handler=ReplyOnPause(
         process_audio, 
         algo_options=options, 
+        model_options=SileroVadOptions(
+            threshold=0.85,
+            min_speech_duration_ms=250,
+            min_silence_duration_ms=900
+        ),
         startup_fn=startup
         # output_sample_rate=16000, 
         # can_interrupt=agent_config.get("can_interrupt", False)
