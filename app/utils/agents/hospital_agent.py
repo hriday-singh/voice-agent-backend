@@ -123,7 +123,7 @@ stream = Stream(
             threshold=0.9,
             min_speech_duration_ms=250,
             min_silence_duration_ms=1000,
-            speech_pad_ms=300
+            speech_pad_ms=150
         ),
         startup_fn=startup,
         input_sample_rate=16000
