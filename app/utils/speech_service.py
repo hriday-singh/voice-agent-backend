@@ -1237,6 +1237,7 @@ class GoogleSTT:
             
             # Get the transcript from the first result
             transcript = response.results[0].alternatives[0].transcript
+            confidence = response.results[0].alternatives[0].confidence
             
             # Get the detected language from response
             detected_language_code = response.results[0].language_code
@@ -1257,7 +1258,7 @@ class GoogleSTT:
             else:
                 detected_language = 'unknown'
             
-            logger.info(f"Transcribed text: '{transcript}', Detected language: {detected_language} (code: {detected_language_code})")
+            logger.info(f"Transcribed text: '{transcript}', Detected language: {detected_language} (code: {detected_language_code}) confidence: {confidence}")
             return transcript, detected_language
             
         except Exception as e:
