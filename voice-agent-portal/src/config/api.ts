@@ -46,6 +46,4 @@ export const ADMIN_AGENT_ENDPOINTS = {
   TRAFFIC: "/admin/agents/traffic",
   CLEAR_USAGE: "/admin/agents/usage/clear",
   CLEAR_TRAFFIC: "/admin/agents/traffic/clear",
-  RECORDINGS: "/admin/agents/recordings",
-  RECORDING_FILE: (fileName: string) => `/admin/agents/recordings/${fileName}`,
 };

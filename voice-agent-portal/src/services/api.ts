@@ -789,49 +789,4 @@ export const clearAgentTraffic = () => {
   return api.delete(ADMIN_AGENT_ENDPOINTS.CLEAR_TRAFFIC);
 };
 
-// Audio Recording interfaces and functions
-export interface AudioRecording {
-  file_name: string;
-  file_path: string;
-  size_bytes: number;
-  modified_time: number;
-}
-
-export const fetchAudioRecordings = async (): Promise<{
-  success: boolean;
-  data?: AudioRecording[];
-  error?: string;
-}> => {
-  try {
-    const token = localStorage.getItem("adminToken");
-    if (!token) {
-      throw new Error("Not authenticated as admin");
-    }
-
-    const response = await api.get(ADMIN_AGENT_ENDPOINTS.RECORDINGS, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    return {
-      success: true,
-      data: response.data,
-    };
-  } catch (error: any) {
-    console.error("Failed to fetch audio recordings:", error);
-    return {
-      success: false,
-      error: getErrorMessage(error),
-    };
-  }
-};
-
-export const getAudioFileUrl = (fileName: string): string => {
-  const token = localStorage.getItem("adminToken");
-  if (!token) {
-    throw new Error("Not authenticated as admin");
-  }
-
-  return `${API_BASE_URL}${ADMIN_AGENT_ENDPOINTS.RECORDING_FILE(fileName)}`;
-};
-
 export default api;

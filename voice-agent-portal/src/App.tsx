@@ -13,7 +13,6 @@ import OTPManagement from "./components/Admin/OTPManagement";
 import OTPList from "./components/Admin/OTPList";
 import AgentConfiguration from "./components/Admin/AgentConfiguration";
 import PasswordChange from "./components/Admin/PasswordChange";
-import AudioRecordings from "./components/Admin/AudioRecordings";
 import AnimatedLogo from "./components/Common/AnimatedLogo";
 import { isAuthenticated, logout } from "./services/auth";
 import "./App.css";
@@ -109,12 +108,6 @@ const App: React.FC = () => {
                         className="text-[#f2efe3] hover:text-[#ffcc33] transition-colors font-medium relative after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-[#ffcc33] after:transition-all hover:after:w-full"
                       >
                         Agent Configuration
-                      </Link>
-                      <Link
-                        to="/admin/recordings"
-                        className="text-[#f2efe3] hover:text-[#ffcc33] transition-colors font-medium relative after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-[#ffcc33] after:transition-all hover:after:w-full"
-                      >
-                        Audio Recordings
                       </Link>
                       <Link
                         to="/admin/password"
@@ -227,7 +220,6 @@ const App: React.FC = () => {
                       <Route path="otps" element={<OTPList />} />
                       <Route path="otp-requests" element={<OTPManagement />} />
                       <Route path="agents" element={<AgentConfiguration />} />
-                      <Route path="recordings" element={<AudioRecordings />} />
                       <Route path="password" element={<PasswordChange />} />
                       <Route
                         index
