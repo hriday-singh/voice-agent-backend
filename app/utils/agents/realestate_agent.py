@@ -88,8 +88,7 @@ def process_audio(audio):
         # Process through pipeline with consistent conversation_id
         if not conversation_id:
             conversation_id = str(uuid4())
-        
-        # Pass transcript to pipeline (language detection is now handled in the STT module)
+
         try:
             result = pipeline.process(
                 text=transcript,
@@ -120,10 +119,10 @@ stream = Stream(
         model_options=SileroVadOptions(
             threshold=0.9,
             min_speech_duration_ms=250,
-            min_silence_duration_ms=1000
+            min_silence_duration_ms=900
         ),
         startup_fn=startup,
-        input_sample_rate=16000,
+        input_sample_rate=16000
         # output_sample_rate=16000, 
         # can_interrupt=agent_config.get("can_interrupt", False)
     ),
