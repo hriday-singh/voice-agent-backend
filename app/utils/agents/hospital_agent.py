@@ -122,7 +122,7 @@ stream = Stream(
         model_options=SileroVadOptions(
             threshold=0.9,
             min_speech_duration_ms=250,
-            min_silence_duration_ms=900
+            min_silence_duration_ms=1000
         ),
         startup_fn=startup,
         input_sample_rate=16000
