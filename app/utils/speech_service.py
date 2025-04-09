@@ -1216,7 +1216,7 @@ class GoogleSTT:
             # Configure the recognition settings
             config = speech.RecognitionConfig(
                 encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-                sample_rate_hertz=48000,
+                sample_rate_hertz=16000,
                 enable_automatic_punctuation=True,
                 model='default',  # Can be 'video', 'phone_call', 'command_and_search', etc.
                 language_code=primary_language_code,  # Use agent's primary language

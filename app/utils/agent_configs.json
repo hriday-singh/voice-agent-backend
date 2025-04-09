@@ -74,7 +74,7 @@
       ],
       "model_config": {
         "provider": "openai",
-        "name": "gpt-4o",
+        "name": "gpt-4o-mini",
         "temperature": 0.7
       },
       "error_messages": {
@@ -142,7 +142,7 @@
       ],
       "model_config": {
         "provider": "openai",
-        "name": "gpt-4o",
+        "name": "gpt-4o-mini",
         "temperature": 0.7
       },
       "error_messages": {
@@ -162,7 +162,7 @@
   "audio_options": {
     "audio_chunk_duration": 0.6,
     "started_talking_threshold": 0.25,
-    "speech_threshold": 0.5
+    "speech_threshold": 0.4
   },
   "default_messages": {
     "error": "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I apologize, I couldn't understand. Please try again.</prosody></speak>",
