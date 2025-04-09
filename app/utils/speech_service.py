@@ -1158,8 +1158,7 @@ class GoogleSTT:
                 'hindi': 'hi-IN',
                 'telugu': 'te-IN',
                 'tamil': 'ta-IN',
-                'bengali': 'bn-IN',
-                'unknown': 'en-IN'  # Default to English for unknown languages
+                'bengali': 'bn-IN'
             }
             
             # Reverse mapping for detection
@@ -1210,14 +1209,14 @@ class GoogleSTT:
                 speech_contexts = [
                     speech.SpeechContext(
                         phrases=speech_context_phrases,
-                        boost=5  # Adjust boost as needed
+                        boost=7  # Adjust boost as needed
                     )
                 ]
             
             # Configure the recognition settings
             config = speech.RecognitionConfig(
                 encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-                sample_rate_hertz=8000,
+                sample_rate_hertz=16000,
                 enable_automatic_punctuation=True,
                 model='default',  # Can be 'video', 'phone_call', 'command_and_search', etc.
                 language_code=primary_language_code,  # Use agent's primary language
@@ -1225,7 +1224,7 @@ class GoogleSTT:
                 enable_spoken_emojis=False,
                 use_enhanced=True,
                 audio_channel_count=1,
-                speech_contexts=speech_contexts,
+                speech_contexts=speech_contexts
             )
             # Perform the transcription
             response = self.client.recognize(config=config, audio=audio)

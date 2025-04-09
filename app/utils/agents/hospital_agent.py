@@ -29,9 +29,9 @@ conversation_id = None
 
 # Configure audio options
 options = AlgoOptions(
-    audio_chunk_duration=audio_options.get("audio_chunk_duration", 0.6),
-    started_talking_threshold=audio_options.get("started_talking_threshold", 0.25),
-    speech_threshold=audio_options.get("speech_threshold", 0.5),
+    audio_chunk_duration=audio_options.get("audio_chunk_duration", 0.8),
+    started_talking_threshold=audio_options.get("started_talking_threshold", 0.3),
+    speech_threshold=audio_options.get("speech_threshold", 0.7),
 )
 
 rtc_configuration = {
@@ -124,7 +124,7 @@ stream = Stream(
         # ), 
         algo_options=options, 
         startup_fn=startup, 
-        input_sample_rate=8000, 
+        input_sample_rate=16000, 
         # output_sample_rate=16000, 
         can_interrupt=agent_config.get("can_interrupt", False)
     ),

@@ -43,10 +43,10 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
       // Get the stream for our local UI
       const micStream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 8000,
+          echoCancellation: { ideal: true },
+          noiseSuppression: { ideal: true },
+          autoGainControl: { ideal: true },
+          sampleRate: 16000,
           channelCount: 1,
         },
       });

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Body, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Body, Query, UploadFile, File, Form, Request
 from app.utils.auth import get_token_data
 from app.schemas.schemas import (
     TokenData, OTPUsageResponse, AgentTrafficResponse,
@@ -13,6 +13,12 @@ from datetime import datetime
 import re
 import os
 from pathlib import Path
+import glob
+from fastapi.responses import FileResponse
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)  
 
 router = APIRouter(prefix="/admin/agents", tags=["Admin Agent Management"])
 
@@ -454,4 +460,87 @@ async def update_system_config(
     # Save updated config
     update_agent_config(config)
     
-    return {"message": "System configuration updated successfully"} 
+    return {"message": "System configuration updated successfully"}
+
+@router.get("/recordings", response_model=List[Dict[str, Any]])
+async def get_audio_recordings(
+    token_data: TokenData = Depends(get_token_data),
+):
+    """
+    Get list of audio recordings.
+    Only accessible by admin users.
+    """
+    # Check admin authorization
+    check_admin_authorization(token_data)
+    
+    try:
+        # Path to recordings directory
+        recordings_dir = "/home/ec2-user/voice-agent/voice-agent/audi_recordings"
+        
+        # Check if directory exists
+        if not os.path.exists(recordings_dir):
+            return []
+            
+        # Get all .wav files
+        audio_files = glob.glob(os.path.join(recordings_dir, "*.wav"))
+        
+        # Format response
+        result = []
+        for file_path in audio_files:
+            file_name = os.path.basename(file_path)
+            file_size = os.path.getsize(file_path)
+            mod_time = os.path.getmtime(file_path)
+            
+            result.append({
+                "file_name": file_name,
+                "file_path": file_path,
+                "size_bytes": file_size,
+                "modified_time": mod_time
+            })
+            
+        # Sort by modified time (newest first)
+        result.sort(key=lambda x: x["modified_time"], reverse=True)
+        
+        return result
+    except Exception as e:
+        logger.error(f"Error fetching audio recordings: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch audio recordings: {str(e)}",
+        )
+
+@router.get("/recordings/{file_name}")
+async def get_audio_recording(
+    file_name: str,
+    token_data: TokenData = Depends(get_token_data),
+):
+    """
+    Stream an audio recording file.
+    Only accessible by admin users.
+    """
+    # Check admin authorization
+    check_admin_authorization(token_data)
+    
+    try:
+        recordings_dir = "audio_recordings"
+        file_path = os.path.join(recordings_dir, file_name)
+        
+        if not os.path.exists(file_path):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Audio file not found"
+            )
+            
+        return FileResponse(
+            file_path, 
+            media_type="audio/wav",
+            filename=file_name
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error streaming audio file: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to stream audio file: {str(e)}",
+        ) 
