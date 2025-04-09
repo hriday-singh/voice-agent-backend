@@ -2,7 +2,7 @@ from app.utils.speech_service import get_stt_model, get_tts_model
 from app.utils.pipeline import Pipeline
 from app.utils.agent_config import get_agent_by_id, get_audio_options
 from decouple import config
-from fastrtc import ReplyOnPause, AlgoOptions, Stream, SileroVadOptions
+from fastrtc import ReplyOnPause, AlgoOptions, Stream
 from uuid import uuid4
 import numpy as np
 

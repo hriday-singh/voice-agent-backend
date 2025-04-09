@@ -475,8 +475,9 @@ async def get_audio_recordings(
     
     try:
         # Path to recordings directory
-        recordings_dir = "/home/ec2-user/voice-agent/voice-agent/audi_recordings"
-        
+        # recordings_dir = "/home/ec2-user/voice-agent/voice-agent/audi_recordings"
+        recordings_dir = "audio_recordings"
+
         # Check if directory exists
         if not os.path.exists(recordings_dir):
             return []
