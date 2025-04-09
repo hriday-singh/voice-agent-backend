@@ -75,7 +75,7 @@
       "model_config": {
         "provider": "openai",
         "name": "gpt-4o-mini",
-        "temperature": 0.7
+        "temperature": 0.6
       },
       "error_messages": {
         "error": "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I apologize, I couldn't understand your real estate query. Please try again.</prosody></speak>",
@@ -142,8 +142,8 @@
       ],
       "model_config": {
         "provider": "openai",
-        "name": "gpt-4o-mini",
-        "temperature": 0.7
+        "name": "gpt-4o",
+        "temperature": 0.6
       },
       "error_messages": {
         "error": "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I apologize, I couldn't understand. Please try again.</prosody></speak>",

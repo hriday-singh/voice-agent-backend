@@ -76,6 +76,7 @@ def process_audio(audio):
         transcript, detected_language = stt_model.process_audio(audio)
 
         if not transcript:
+            return empty_audio_iterator()
             # Get error message from agent config
             error_msg = agent_config.get("error_messages", {}).get("unclear_audio", 
                      "<speak xml:lang='en-IN'><prosody rate='medium' pitch='0%'>I couldn't hear you clearly. Could you please repeat?</prosody></speak>")
