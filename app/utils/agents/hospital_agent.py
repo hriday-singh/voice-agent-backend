@@ -123,8 +123,8 @@ stream = Stream(
         #     min_silence_duration_ms=1500
         # ), 
         algo_options=options, 
-        startup_fn=startup
-        # input_sample_rate=16000, 
+        startup_fn=startup,
+        input_sample_rate=16000
         # output_sample_rate=16000, 
         # can_interrupt=agent_config.get("can_interrupt", False)
     ),

@@ -64,6 +64,9 @@ Thumbs.db
 .pydevproject
 .settings/
 
+audio_recordings/
+
+
 # Docker
 .docker/
 docker-compose.override.yml
@@ -90,4 +93,4 @@ libsql-*/
 secure_db.py
 rebuild_db.py
 turso_test.py
-test_speech_recognition.py
+transcribe_audio.py
