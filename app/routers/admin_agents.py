@@ -472,6 +472,7 @@ async def get_audio_recordings(
     """
     # Check admin authorization
     check_admin_authorization(token_data)
+    logger.info("Getting audio recordings")
     
     try:
         # Path to recordings directory
