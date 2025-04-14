@@ -44,9 +44,9 @@ class VoiceAgent:
         
         # Configure audio options
         self.options = AlgoOptions(
-            audio_chunk_duration=0.6,
-            started_talking_threshold=0.25,
-            speech_threshold=0.5,
+            audio_chunk_duration=0.8,
+            started_talking_threshold=0.3,
+            speech_threshold=0.7,
         )
         
         self.rtc_configuration = {

@@ -7,6 +7,11 @@ from langgraph.graph import StateGraph, END
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
+import logging
+import re
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 # Simple state definition
 class AgentState(TypedDict):
@@ -129,6 +134,72 @@ builder.add_edge("agent", END)
 # Compile the graph
 graph = builder.compile()
 
+def ensure_ssml_format(text: str) -> str:
+    """
+    Ensures the text is properly formatted as SSML.
+    
+    This function efficiently validates and corrects SSML markup to ensure it's correctly
+    formatted for speech synthesis services.
+    
+    Args:
+        text: The text that may or may not contain SSML markup
+        
+    Returns:
+        Properly formatted SSML string
+    """
+    # Precompile regex patterns for performance
+    speak_pattern = re.compile(r'<speak>.*</speak>', re.DOTALL)
+    
+    # Check if the text already has speak tags
+    if not speak_pattern.search(text):
+        text = f"<speak>{text}</speak>"
+    else:
+        # Fix nested speak tags in one pass
+        text = re.sub(r'<speak>(?:.*?)<speak>', '<speak>', text, flags=re.DOTALL)
+        text = re.sub(r'</speak>(?:.*?)</speak>', '</speak>', text, flags=re.DOTALL)
+    
+    # Fix malformed break tags in one pass
+    text = re.sub(r'<break>(?:[^<]*)</break>', r'<break/>', text)
+    text = re.sub(r'<break([^/>]*)>', r'<break\1/>', text)
+    
+    # Common SSML tags
+    tags = ['say-as', 'emphasis', 'prosody', 'phoneme', 's', 'p']
+    
+    # Fix unclosed tags in one efficient pass
+    missing_closures = []
+    for tag in tags:
+        # Count opening and closing tags
+        open_count = text.count(f'<{tag}')
+        close_count = text.count(f'</{tag}>')
+        
+        # If tags aren't balanced, add to missing closures list
+        if open_count > close_count:
+            missing_closures.extend([f'</{tag}>' for _ in range(open_count - close_count)])
+    
+    # Add all missing closures at once if needed
+    if missing_closures:
+        text = text.replace('</speak>', ''.join(missing_closures) + '</speak>')
+    
+    # Handle XML escaping in one pass with efficient replacements
+    # Only process if there might be special characters to replace
+    if '&' in text or '<' in text or '>' in text:
+        # Create a list of segments alternating between tag and non-tag content
+        tag_pattern = re.compile(r'<[^>]+>|[^<]+')
+        segments = tag_pattern.findall(text)
+        
+        for i, segment in enumerate(segments):
+            if not segment.startswith('<'):
+                # This is a text segment, not a tag
+                # Replace special characters
+                segment = re.sub(r'&(?![a-zA-Z]+;)', '&amp;', segment)
+                segment = segment.replace('<', '&lt;').replace('>', '&gt;')
+                segments[i] = segment
+        
+        text = ''.join(segments)
+    
+    logger.info(f"Formatted SSML output: {text}")
+    return text
+
 # Function to get agent responses
 def get_agent_response(agent_id: str, user_input: str, conversation_id: str) -> str:
     """Get a response from an agent."""
@@ -147,7 +218,10 @@ def get_agent_response(agent_id: str, user_input: str, conversation_id: str) -> 
             "agent_config": agent_config
         }
     }
-    
+
+    # a logger code line for seeing if the correct system prompt is being used
+    logger.info(f"System prompt: {agent_config['system_prompt']}")
+
     try:
         # Run the graph
         output_state = graph.invoke(input_state, config)
@@ -156,11 +230,15 @@ def get_agent_response(agent_id: str, user_input: str, conversation_id: str) -> 
         if output_state and "messages" in output_state and output_state["messages"]:
             ai_message = output_state["messages"][-1]
             if hasattr(ai_message, "content"):
-                return ai_message.content
+                logger.info(f"AI message: {ai_message.content}")
+                response_content = ai_message.content
+                # Format as SSML if needed
+                ssml_formatted_response = ensure_ssml_format(response_content)
+                return ssml_formatted_response
         
-        return "No response generated."
+        return "<speak>No response generated.</speak>"
     except Exception as e:
-        return f"Error: {str(e)}"
+        return f"<speak>Error: {str(e)}</speak>"
 
 def reload_agent_registry():
     """Reload the agent registry."""
