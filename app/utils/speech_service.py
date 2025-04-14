@@ -288,7 +288,7 @@ class STTWrapper:
         audio_file = io.BytesIO(wav_data)
 
         # Save the audio file
-        # self.audio_processor.save_audio(wav_data)
+        self.audio_processor.save_audio(wav_data)
         
         # Transcribe with agent type if available
         transcript, detected_language = self.provider.transcribe(audio_file, self.current_agent_type)
