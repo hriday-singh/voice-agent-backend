@@ -147,58 +147,12 @@ def ensure_ssml_format(text: str) -> str:
     Returns:
         Properly formatted SSML string
     """
-    # Precompile regex patterns for performance
-    speak_pattern = re.compile(r'<speak>.*</speak>', re.DOTALL)
+    # If already has speak tags, return as is
+    if re.search(r'^\s*<speak.*?>.*?</speak>\s*$', text, re.DOTALL):
+        return text
     
-    # Check if the text already has speak tags
-    if not speak_pattern.search(text):
-        text = f"<speak>{text}</speak>"
-    else:
-        # Fix nested speak tags in one pass
-        text = re.sub(r'<speak>(?:.*?)<speak>', '<speak>', text, flags=re.DOTALL)
-        text = re.sub(r'</speak>(?:.*?)</speak>', '</speak>', text, flags=re.DOTALL)
-    
-    # Fix malformed break tags in one pass
-    text = re.sub(r'<break>(?:[^<]*)</break>', r'<break/>', text)
-    text = re.sub(r'<break([^/>]*)>', r'<break\1/>', text)
-    
-    # Common SSML tags
-    tags = ['say-as', 'emphasis', 'prosody', 'phoneme', 's', 'p']
-    
-    # Fix unclosed tags in one efficient pass
-    missing_closures = []
-    for tag in tags:
-        # Count opening and closing tags
-        open_count = text.count(f'<{tag}')
-        close_count = text.count(f'</{tag}>')
-        
-        # If tags aren't balanced, add to missing closures list
-        if open_count > close_count:
-            missing_closures.extend([f'</{tag}>' for _ in range(open_count - close_count)])
-    
-    # Add all missing closures at once if needed
-    if missing_closures:
-        text = text.replace('</speak>', ''.join(missing_closures) + '</speak>')
-    
-    # Handle XML escaping in one pass with efficient replacements
-    # Only process if there might be special characters to replace
-    if '&' in text or '<' in text or '>' in text:
-        # Create a list of segments alternating between tag and non-tag content
-        tag_pattern = re.compile(r'<[^>]+>|[^<]+')
-        segments = tag_pattern.findall(text)
-        
-        for i, segment in enumerate(segments):
-            if not segment.startswith('<'):
-                # This is a text segment, not a tag
-                # Replace special characters
-                segment = re.sub(r'&(?![a-zA-Z]+;)', '&amp;', segment)
-                segment = segment.replace('<', '&lt;').replace('>', '&gt;')
-                segments[i] = segment
-        
-        text = ''.join(segments)
-    
-    logger.info(f"Formatted SSML output: {text}")
-    return text
+    # If no speak tags, wrap in speak tags
+    return f"<speak>{text}</speak>"
 
 # Function to get agent responses
 def get_agent_response(agent_id: str, user_input: str, conversation_id: str) -> str:
@@ -218,9 +172,6 @@ def get_agent_response(agent_id: str, user_input: str, conversation_id: str) -> 
             "agent_config": agent_config
         }
     }
-
-    # a logger code line for seeing if the correct system prompt is being used
-    logger.info(f"System prompt: {agent_config['system_prompt']}")
 
     try:
         # Run the graph
