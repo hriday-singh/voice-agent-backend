@@ -68,7 +68,7 @@ class VoiceAgent:
                 self.process_audio, 
                 algo_options=self.options, 
                 model_options=SileroVadOptions(
-                    threshold=0.93,
+                    threshold=0.96,
                     min_silence_duration_ms=2000,
                     speech_pad_ms=250
                 ),

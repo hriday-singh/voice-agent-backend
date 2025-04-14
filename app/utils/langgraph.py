@@ -94,7 +94,8 @@ def agent_node(state: AgentState, config: RunnableConfig):
             api_key = os.getenv("CLAUDE_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
             llm = ChatAnthropic(model=model_name, temperature=temperature, api_key=api_key)
         elif provider in ['google', 'gemini']:
-            llm = ChatGoogleGenerativeAI(model=model_name, temperature=temperature)
+            api_key = os.getenv("GEMINI_API_KEY")
+            llm = ChatGoogleGenerativeAI(model=model_name, temperature=temperature, api_key=api_key)
         else:
             # Default to OpenAI if provider not recognized
             llm = ChatOpenAI(model=model_name, temperature=temperature)
@@ -181,7 +182,6 @@ def get_agent_response(agent_id: str, user_input: str, conversation_id: str) -> 
         if output_state and "messages" in output_state and output_state["messages"]:
             ai_message = output_state["messages"][-1]
             if hasattr(ai_message, "content"):
-                logger.info(f"AI message: {ai_message.content}")
                 response_content = ai_message.content
                 # Format as SSML if needed
                 ssml_formatted_response = ensure_ssml_format(response_content)
