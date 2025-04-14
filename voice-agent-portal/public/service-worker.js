@@ -8,6 +8,7 @@ const STATIC_ASSETS = [
   "/assets/caw-tech-logo.gif",
   "/assets/caw-tech-logo.svg",
   "/favicon.ico",
+  "/logo.svg",
   "/cropped-fav-icon-32x32.png",
 ];
 

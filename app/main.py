@@ -1,9 +1,11 @@
-from fastapi import FastAPI, Depends, HTTPException, status, WebSocket
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.database.db import get_db, ensure_tables, TURSO_DATABASE_URL, LOCAL_DB_FILE, sync_with_remote, cleanup_connection
-from app.routers import auth, otp, agents, admin_agents
-from app.utils.agents import realestate_agent, hospital_agent
-from app.utils.auth import get_password_hash, get_token_data
+from app.database.db import get_db, ensure_tables, DB_NAME, DB_HOST, cleanup_connection
+from app.routers import auth, otp, agents, admin_agents, admin_llm
+from app.utils.dynamic_agents import set_app, initialize_agents
+from app.utils.auth import get_password_hash
+from app.models.models import Admin
+from sqlmodel import Session, select
 import os
 from dotenv import load_dotenv
 import secrets
@@ -22,56 +24,50 @@ if not os.getenv("SECRET_KEY"):
     os.environ["SECRET_KEY"] = secrets.token_hex(32)
 
 # Debug database connection
-if TURSO_DATABASE_URL:
-    logger.info(f"Using Turso database")
-else:
-    logger.info(f"Using local database: {LOCAL_DB_FILE}")
+logger.info(f"Using PostgreSQL database: {DB_HOST}/{DB_NAME}")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize database
+    # Initialize database FIRST
     logger.info("Initializing database...")
     try:
-        # Sync with remote database at startup if using Turso
-        if TURSO_DATABASE_URL:
-            logger.info("Syncing with remote Turso database...")
-            sync_with_remote()
-        
-        # Create tables after syncing with remote
+        # Create tables before anything else
+        logger.info("Creating database tables...")
         ensure_tables()
         logger.info("Database tables created successfully")
         
         # Create default admin on startup
-        with get_db() as conn:
+        with get_db() as session:
             try:
                 # First try to query the admin
                 logger.info("Checking if admin exists...")
-                admin = conn.execute(
-                    "SELECT * FROM admins WHERE username = ?", 
-                    ("cawadmin",)
-                ).fetchone()
+                admin = session.exec(select(Admin).where(Admin.username == "cawadmin")).first()
                 
                 if not admin:
                     # Create default admin
                     logger.info("Admin not found, creating default admin account...")
-                    conn.execute(
-                        "INSERT INTO admins (username, password_hash) VALUES (?, ?)",
-                        ("cawadmin", get_password_hash("adminc@w"))
+                    admin = Admin(
+                        username="cawadmin",
+                        password_hash=get_password_hash("adminc@w")
                     )
+                    session.add(admin)
+                    session.commit()
                     logger.info("Created default admin account: username='cawadmin', password='adminc@w'")
                 else:
                     logger.info("Admin account already exists")
-                
-                # Sync changes back to remote
-                if TURSO_DATABASE_URL:
-                    logger.info("Syncing changes back to remote Turso database...")
-                    # conn.sync()
+                      
             except Exception as e:
-                logger.error(f"Error with admin account setup: {e}")
+                logger.error(f"Error during startup configuration: {e}")
                 raise
     except Exception as e:
         logger.error(f"Error during database initialization: {e}")
         raise
+    
+    # Initialize and mount all enabled agents
+    logger.info("Initializing voice agents...")
+    set_app(app)  # Set the FastAPI app instance first
+    initialize_agents()  # Then initialize all agents
+    logger.info("Voice agents initialized successfully")
     
     yield
     
@@ -126,14 +122,11 @@ async def add_security_headers(request, call_next):
     return response
 
 # Add routers
-app.include_router(auth.router, prefix="/api")  # Admin auth endpoints: /api/auth/login/admin
-app.include_router(otp.router, prefix="/api")   # OTP endpoints: /api/otps/login
+app.include_router(auth.router, prefix="/api")
+app.include_router(otp.router, prefix="/api")
 app.include_router(agents.router, prefix="/api")
 app.include_router(admin_agents.router, prefix="/api")
-
-# Mount the FastRTC streams at authenticated paths
-realestate_agent.stream.mount(app, path="/api/voice-agents/realestate")
-hospital_agent.stream.mount(app, path="/api/voice-agents/hospital")
+app.include_router(admin_llm.router, prefix="/api")
 
 @app.get("/health", tags=["Health"])
 async def health_check():

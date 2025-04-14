@@ -43,7 +43,21 @@ export const ADMIN_AGENT_ENDPOINTS = {
   DISABLE: (id: string) => `/admin/agents/${id}/disable`,
   SYSTEM_CONFIG: "/admin/agents/config/system",
   USAGE: "/admin/agents/usage",
-  TRAFFIC: "/admin/agents/traffic",
   CLEAR_USAGE: "/admin/agents/usage/clear",
-  CLEAR_TRAFFIC: "/admin/agents/traffic/clear",
+  LANGUAGE_CODES: "/admin/agents/global-configs/language-codes",
+};
+
+// LLM Provider and Model endpoints
+export const LLM_ENDPOINTS = {
+  PROVIDERS_LIST: "/admin/llm/providers",
+  PROVIDER_GET: (id: number) => `/admin/llm/providers/${id}`,
+  PROVIDER_CREATE: "/admin/llm/providers",
+  PROVIDER_UPDATE: (id: number) => `/admin/llm/providers/${id}`,
+  PROVIDER_DELETE: (id: number) => `/admin/llm/providers/${id}`,
+
+  MODELS_LIST: "/admin/llm/models",
+  MODEL_GET: (id: number) => `/admin/llm/models/${id}`,
+  MODEL_CREATE: "/admin/llm/models",
+  MODEL_UPDATE: (id: number) => `/admin/llm/models/${id}`,
+  MODEL_DELETE: (id: number) => `/admin/llm/models/${id}`,
 };

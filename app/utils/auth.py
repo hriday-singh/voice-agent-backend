@@ -42,6 +42,9 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return encoded_jwt
 
 def get_token_data(token: str = Depends(oauth2_scheme)) -> TokenData:
+    """
+    Verify and decode token
+    """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -61,10 +64,10 @@ def get_token_data(token: str = Depends(oauth2_scheme)) -> TokenData:
             if not otp_code:
                 raise credentials_exception
             
-            # Use our Turso connection
-            with get_db() as conn:
+            # Use our database session
+            with get_db() as session:
                 # Check if OTP exists and is valid
-                otp = get_otp_by_code(conn, otp_code)
+                otp = get_otp_by_code(session, otp_code)
                 if not otp:
                     raise HTTPException(
                         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -72,14 +75,14 @@ def get_token_data(token: str = Depends(oauth2_scheme)) -> TokenData:
                     )
                 
                 # Check if OTP has expired
-                if otp['expires_at'] and otp['expires_at'] < datetime.utcnow():
+                if otp.expires_at and otp.expires_at < datetime.utcnow():
                     raise HTTPException(
                         status_code=status.HTTP_401_UNAUTHORIZED,
                         detail="OTP has expired",
                     )
                 
                 # Check if OTP is exhausted
-                if otp['is_used'] or otp['remaining_uses'] <= 0:
+                if otp.is_used or otp.remaining_uses <= 0:
                     raise HTTPException(
                         status_code=status.HTTP_401_UNAUTHORIZED,
                         detail="OTP has been exhausted",
@@ -116,10 +119,10 @@ async def get_token_from_query(token: str) -> TokenData:
             if not otp_code:
                 raise credentials_exception
             
-            # Use our Turso connection
-            with get_db() as conn:
+            # Use our database session
+            with get_db() as session:
                 # Check if OTP exists and is valid
-                otp = get_otp_by_code(conn, otp_code)
+                otp = get_otp_by_code(session, otp_code)
                 if not otp:
                     raise HTTPException(
                         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -127,14 +130,14 @@ async def get_token_from_query(token: str) -> TokenData:
                     )
                 
                 # Check if OTP has expired
-                if otp['expires_at'] and otp['expires_at'] < datetime.utcnow():
+                if otp.expires_at and otp.expires_at < datetime.utcnow():
                     raise HTTPException(
                         status_code=status.HTTP_401_UNAUTHORIZED,
                         detail="OTP has expired",
                     )
                 
                 # Check if OTP is exhausted
-                if otp['is_used'] or otp['remaining_uses'] <= 0:
+                if otp.is_used or otp.remaining_uses <= 0:
                     raise HTTPException(
                         status_code=status.HTTP_401_UNAUTHORIZED,
                         detail="OTP has been exhausted",
@@ -152,3 +155,18 @@ async def get_token_from_query(token: str) -> TokenData:
 def generate_otp(length: int = 6) -> str:
     """Generate a random numeric OTP code"""
     return ''.join(random.choices(string.digits, k=length)) 
+
+def verify_admin(token: str = Depends(oauth2_scheme)) -> dict:
+    """Verify if user is an admin and return token data"""
+    token_data = get_token_data(token)
+    
+    if token_data.user_type != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can access this endpoint"
+        )
+    
+    return {
+        "username": token_data.username,
+        "user_type": token_data.user_type
+    } 

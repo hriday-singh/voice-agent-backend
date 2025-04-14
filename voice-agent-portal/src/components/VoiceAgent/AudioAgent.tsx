@@ -114,7 +114,7 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
 
       // Construct the full WebRTC endpoint URL
       const webrtcEndpoint = `${API_BASE_URL}${apiPath}/webrtc/offer`;
-      // console.log("Using WebRTC endpoint:", webrtcEndpoint);
+      console.log("Using WebRTC endpoint:", webrtcEndpoint);
 
       // Generate a random webrtc ID
       webrtcIdRef.current = Math.random().toString(36).substring(7);
@@ -310,14 +310,6 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
   return (
     <div className="flex flex-col items-center w-[calc(100%-2rem)] max-w-2xl mx-auto p-4">
       <div className="w-[calc(100%-2rem)]">
-        <button
-          className="text-[#ffcc33] hover:text-[#ffcc33]/80 flex items-center gap-2 transition-colors mb-6"
-          onClick={onBackToSelection}
-        >
-          <IconWrapper icon={IoArrowBack} />
-          Back to Agents
-        </button>
-
         <div className="relative w-full max-w-md aspect-square mx-auto">
           <VoiceVisualizer
             audioStream={outputStream}
@@ -377,33 +369,6 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
               {isConnecting ? "Connecting..." : "Connect"}
             </button>
           )}
-        </div>
-
-        {/* Instructions */}
-        <div className="mt-8 p-4 bg-[#31261a]/20 rounded-lg text-[#f2efe3] text-sm max-w-md w-full">
-          <p className="mb-3">
-            <strong>Important Instructions:</strong>
-          </p>
-          <ul className="list-disc list-inside space-y-2">
-            <li>
-              Please mute yourself when not talking to prevent echo and
-              feedback.
-            </li>
-            <li>
-              This feature is still in development and may not provide the most
-              accurate results.
-            </li>
-            <li>For best results, speak clearly and in a quiet environment.</li>
-          </ul>
-          <p className="mt-4 text-sm">
-            For any feedback, please contact us at{" "}
-            <a
-              href="mailto:hello@caw.tech"
-              className="text-[#ffcc33] hover:underline"
-            >
-              hello@caw.tech
-            </a>
-          </p>
         </div>
       </div>
       <audio ref={audioRef} autoPlay playsInline style={{ display: "none" }} />

@@ -92,5 +92,6 @@ libsql-*/
 # Custom scripts
 secure_db.py
 rebuild_db.py
-turso_test.py
-transcribe_audio.py
+test_langgraph.py
+migrate_to_supabase.py
+.env.supabase

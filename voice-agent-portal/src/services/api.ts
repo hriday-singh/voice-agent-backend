@@ -6,6 +6,7 @@ import {
   OTP_REQUEST_ENDPOINTS,
   AGENT_ENDPOINTS,
   ADMIN_AGENT_ENDPOINTS,
+  LLM_ENDPOINTS,
 } from "../config/api";
 
 // Create API instance with base URL and credentials
@@ -275,6 +276,12 @@ export const accessVoiceAgent = async (
   message?: string;
   remainingUses?: number;
   error?: string;
+  agent_info?: {
+    is_outbound: boolean;
+    limitations: string[];
+    primary_language: string;
+    supported_languages: string[];
+  };
 }> => {
   try {
     const token = localStorage.getItem("token");
@@ -295,6 +302,7 @@ export const accessVoiceAgent = async (
       success: true,
       message: response.data.message,
       remainingUses: response.data.remaining_uses,
+      agent_info: response.data.agent_info,
     };
   } catch (error: any) {
     if (error.response?.status === 401) {
@@ -516,58 +524,54 @@ export const changeAdminPassword = async (
 };
 
 // Agent Management Functions
-export interface AgentData {
-  id?: string;
+export interface Agent {
+  id: number;
+  agent_type: string;
   name: string;
   description: string;
+  enabled: boolean;
+  is_outbound: boolean;
+  tags: string[];
+}
+
+export interface AgentDetail {
+  id: number;
+  name: string;
+  description: string;
+  agent_type: string;
+  api_path: string;
   startup_message: string;
-  prompt: string;
-  enabled?: boolean;
-  voice_name?: string;
-  languages?: {
+  system_prompt: string;
+  voice_name: string;
+  can_interrupt: boolean;
+  is_outbound: boolean;
+  enabled: boolean;
+  languages: {
     primary: string;
     supported: string[];
   };
-  model_config?: {
-    provider: string;
-    name: string;
-    temperature: number;
-  };
-  error_messages?: {
+  error_messages: {
     error: string;
     unclear_audio: string;
     unsupported_language: string;
-    [key: string]: string;
   };
+  limitations: string[];
+  llm_model_id?: number;
+  temperature?: number;
+  speech_context: string[];
+  tags: string[];
 }
 
-export interface AgentResponse {
-  message: string;
-  agent: {
-    id: string;
-    name: string;
-    description: string;
-    api_path: string;
-    startup_message: string;
-    prompt_file: string;
-    enabled: boolean;
-    voice_name?: string;
-    languages?: {
-      primary: string;
-      supported: string[];
-    };
-    model_config?: {
-      provider: string;
-      name: string;
-      temperature: number;
-    };
-    error_messages?: {
-      error: string;
-      unclear_audio: string;
-      unsupported_language: string;
-      [key: string]: string;
-    };
-  };
+export interface UsageRecord {
+  id: number;
+  otp_id: number;
+  agent_type: string;
+  timestamp: string;
+}
+
+export interface UsageParams {
+  limit?: number;
+  offset?: number;
 }
 
 export const fetchAgentList = async (): Promise<any> => {
@@ -580,7 +584,7 @@ export const fetchAgentList = async (): Promise<any> => {
 };
 
 // Admin Agent Management Functions
-export const fetchAllAgents = async (): Promise<any> => {
+export const fetchAllAgents = async (): Promise<Agent[]> => {
   try {
     const token = localStorage.getItem("adminToken");
     if (!token) {
@@ -597,24 +601,34 @@ export const fetchAllAgents = async (): Promise<any> => {
 };
 
 export const createAgent = async (
-  agentData: AgentData
-): Promise<AgentResponse> => {
+  agentData: AgentDetail
+): Promise<AgentDetail> => {
   try {
     const token = localStorage.getItem("adminToken");
     if (!token) {
       throw new Error("Not authenticated as admin");
     }
 
+    console.log(
+      "Creating agent with data:",
+      JSON.stringify(agentData, null, 2)
+    );
+    console.log("API Endpoint:", ADMIN_AGENT_ENDPOINTS.CREATE);
+
     const response = await api.post(ADMIN_AGENT_ENDPOINTS.CREATE, agentData, {
       headers: { Authorization: `Bearer ${token}` },
     });
+
+    console.log("Agent creation successful, response:", response.data);
     return response.data;
   } catch (error: any) {
+    console.error("Agent creation failed:", error);
+    console.error("Error details:", error.response?.data || error.message);
     throw new Error(getErrorMessage(error));
   }
 };
 
-export const getAgent = async (agentId: string): Promise<AgentResponse> => {
+export const getAgent = async (agentId: string): Promise<AgentDetail> => {
   try {
     const token = localStorage.getItem("adminToken");
     if (!token) {
@@ -632,8 +646,8 @@ export const getAgent = async (agentId: string): Promise<AgentResponse> => {
 
 export const updateAgent = async (
   agentId: string,
-  agentData: Partial<AgentData>
-): Promise<AgentResponse> => {
+  agentData: Partial<AgentDetail>
+): Promise<AgentDetail> => {
   try {
     const token = localStorage.getItem("adminToken");
     if (!token) {
@@ -715,32 +729,32 @@ export const disableAgent = async (
   }
 };
 
-export const getSystemConfig = async (): Promise<any> => {
+export interface UsageResponse {
+  data: UsageRecord[];
+  pagination: {
+    total: number;
+    limit: number;
+    offset: number;
+    has_more: boolean;
+  };
+}
+
+export const getAgentUsage = async (
+  params: UsageParams = { limit: 100, offset: 0 }
+): Promise<UsageResponse> => {
   try {
     const token = localStorage.getItem("adminToken");
     if (!token) {
       throw new Error("Not authenticated as admin");
     }
 
-    const response = await api.get(ADMIN_AGENT_ENDPOINTS.SYSTEM_CONFIG, {
-      headers: { Authorization: `Bearer ${token}` },
+    const queryParams = new URLSearchParams({
+      limit: params.limit?.toString() || "100",
+      offset: params.offset?.toString() || "0",
     });
-    return response.data;
-  } catch (error: any) {
-    throw new Error(getErrorMessage(error));
-  }
-};
 
-export const updateSystemConfig = async (configData: any): Promise<any> => {
-  try {
-    const token = localStorage.getItem("adminToken");
-    if (!token) {
-      throw new Error("Not authenticated as admin");
-    }
-
-    const response = await api.put(
-      ADMIN_AGENT_ENDPOINTS.SYSTEM_CONFIG,
-      configData,
+    const response = await api.get(
+      `${ADMIN_AGENT_ENDPOINTS.USAGE}?${queryParams.toString()}`,
       {
         headers: { Authorization: `Bearer ${token}` },
       }
@@ -751,42 +765,292 @@ export const updateSystemConfig = async (configData: any): Promise<any> => {
   }
 };
 
-export interface UsageParams {
-  limit?: number;
-  offset?: number;
+export const clearAgentUsage = async (): Promise<{
+  success: boolean;
+  message: string;
+}> => {
+  try {
+    const token = localStorage.getItem("adminToken");
+    if (!token) {
+      throw new Error("Not authenticated as admin");
+    }
+
+    const response = await api.delete(ADMIN_AGENT_ENDPOINTS.CLEAR_USAGE, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(getErrorMessage(error));
+  }
+};
+
+export const getSystemConfig = async () => {
+  try {
+    const token = localStorage.getItem("adminToken");
+    if (!token) {
+      throw new Error("Not authenticated as admin");
+    }
+
+    const response = await api.get("/admin/agents/global-configs", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(getErrorMessage(error));
+  }
+};
+
+export const updateSystemConfig = async (configData: any) => {
+  try {
+    const token = localStorage.getItem("adminToken");
+    if (!token) {
+      throw new Error("Not authenticated as admin");
+    }
+
+    const response = await api.put("/admin/agents/global-configs", configData, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(getErrorMessage(error));
+  }
+};
+
+// LLM Provider and Model Interfaces
+export interface LLMProvider {
+  id: number;
+  name: string;
+  description: string;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
-export interface TrafficParams {
-  limit?: number;
-  offset?: number;
+export interface LLMModel {
+  id: number;
+  provider_id: number;
+  name: string;
+  display_name: string;
+  default_temperature: number;
+  created_at: string;
+  updated_at: string;
+  provider?: LLMProvider;
 }
 
-export const getAgentUsage = (
-  params: UsageParams = { limit: 100, offset: 0 }
-) => {
-  const queryParams = new URLSearchParams({
-    limit: params.limit?.toString() || "100",
-    offset: params.offset?.toString() || "0",
-  });
-  return api.get(`/admin/agents/usage?${queryParams.toString()}`);
+export interface LLMModelList {
+  id: number;
+  provider_id: number;
+  name: string;
+  display_name: string;
+  default_temperature: number;
+  created_at: string;
+  updated_at: string;
+  provider_name: string;
+}
+
+export interface LLMProviderCreate {
+  name: string;
+  description: string;
+  enabled?: boolean;
+}
+
+export interface LLMModelCreate {
+  provider_id: number;
+  name: string;
+  display_name: string;
+  default_temperature: number;
+}
+
+// LLM Provider functions
+export const fetchLLMProviders = async (): Promise<LLMProvider[]> => {
+  try {
+    const token = localStorage.getItem("adminToken");
+    if (!token) {
+      throw new Error("Not authenticated as admin");
+    }
+
+    const response = await api.get(LLM_ENDPOINTS.PROVIDERS_LIST, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(getErrorMessage(error));
+  }
 };
 
-export const getAgentTraffic = (
-  params: TrafficParams = { limit: 100, offset: 0 }
-) => {
-  const queryParams = new URLSearchParams({
-    limit: params.limit?.toString() || "100",
-    offset: params.offset?.toString() || "0",
-  });
-  return api.get(`/admin/agents/traffic?${queryParams.toString()}`);
+export const createLLMProvider = async (
+  provider: LLMProviderCreate
+): Promise<{ id: number; message: string }> => {
+  try {
+    const token = localStorage.getItem("adminToken");
+    if (!token) {
+      throw new Error("Not authenticated as admin");
+    }
+
+    const response = await api.post(LLM_ENDPOINTS.PROVIDER_CREATE, provider, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(getErrorMessage(error));
+  }
 };
 
-export const clearAgentUsage = () => {
-  return api.delete("/admin/agents/usage/clear");
+export const updateLLMProvider = async (
+  id: number,
+  provider: Partial<LLMProviderCreate>
+): Promise<{ message: string }> => {
+  try {
+    const token = localStorage.getItem("adminToken");
+    if (!token) {
+      throw new Error("Not authenticated as admin");
+    }
+
+    const response = await api.put(
+      LLM_ENDPOINTS.PROVIDER_UPDATE(id),
+      provider,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+    return response.data;
+  } catch (error: any) {
+    throw new Error(getErrorMessage(error));
+  }
 };
 
-export const clearAgentTraffic = () => {
-  return api.delete(ADMIN_AGENT_ENDPOINTS.CLEAR_TRAFFIC);
+export const deleteLLMProvider = async (
+  id: number
+): Promise<{ message: string }> => {
+  try {
+    const token = localStorage.getItem("adminToken");
+    if (!token) {
+      throw new Error("Not authenticated as admin");
+    }
+
+    const response = await api.delete(LLM_ENDPOINTS.PROVIDER_DELETE(id), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(getErrorMessage(error));
+  }
+};
+
+// LLM Model functions
+export const fetchLLMModels = async (
+  providerId?: number
+): Promise<LLMModel[]> => {
+  try {
+    const token = localStorage.getItem("adminToken");
+    if (!token) {
+      throw new Error("Not authenticated as admin");
+    }
+
+    const url = providerId
+      ? `${LLM_ENDPOINTS.MODELS_LIST}?provider_id=${providerId}`
+      : LLM_ENDPOINTS.MODELS_LIST;
+
+    const response = await api.get(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(getErrorMessage(error));
+  }
+};
+
+export const fetchLLMModelsList = async (): Promise<LLMModelList[]> => {
+  try {
+    const token = localStorage.getItem("adminToken");
+    if (!token) {
+      throw new Error("Not authenticated as admin");
+    }
+
+    const url = LLM_ENDPOINTS.MODELS_LIST;
+
+    const response = await api.get(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(getErrorMessage(error));
+  }
+};
+
+export const createLLMModel = async (
+  model: LLMModelCreate
+): Promise<{ id: number; message: string }> => {
+  try {
+    const token = localStorage.getItem("adminToken");
+    if (!token) {
+      throw new Error("Not authenticated as admin");
+    }
+
+    const response = await api.post(LLM_ENDPOINTS.MODEL_CREATE, model, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(getErrorMessage(error));
+  }
+};
+
+export const updateLLMModel = async (
+  id: number,
+  model: Partial<LLMModelCreate>
+): Promise<{ message: string }> => {
+  try {
+    const token = localStorage.getItem("adminToken");
+    if (!token) {
+      throw new Error("Not authenticated as admin");
+    }
+
+    const response = await api.put(LLM_ENDPOINTS.MODEL_UPDATE(id), model, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(getErrorMessage(error));
+  }
+};
+
+export const deleteLLMModel = async (
+  id: number
+): Promise<{ message: string }> => {
+  try {
+    const token = localStorage.getItem("adminToken");
+    if (!token) {
+      throw new Error("Not authenticated as admin");
+    }
+
+    const response = await api.delete(LLM_ENDPOINTS.MODEL_DELETE(id), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(getErrorMessage(error));
+  }
+};
+
+export interface LanguageCodes {
+  [key: string]: string;
+}
+
+export const getLanguageCodes = async (): Promise<LanguageCodes> => {
+  try {
+    const token = localStorage.getItem("adminToken");
+    if (!token) {
+      throw new Error("Not authenticated as admin");
+    }
+
+    const response = await api.get(ADMIN_AGENT_ENDPOINTS.LANGUAGE_CODES, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(getErrorMessage(error));
+  }
 };
 
 export default api;

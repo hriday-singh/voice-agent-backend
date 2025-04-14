@@ -1,5 +1,28 @@
+# DEPRECATED: This file is deprecated. Please use the modular schema files instead:
+# - admin.py: Admin schemas
+# - otp.py: OTP and OTP usage schemas
+# - agent.py: Agent configuration and traffic schemas
+# - common.py: Common utility schemas like Token, Response, etc.
+# - responses.py: Pagination and list response schemas
+
+# For backward compatibility, all schemas are re-exported in __init__.py
+# So you can still import from app.schemas
+
+# This file will be removed in a future version
+import warnings
+
+warnings.warn(
+    "Importing directly from schemas.py is deprecated. "
+    "Please import from app.schemas instead.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
+# Re-export all schemas for backward compatibility
+from app.schemas import *
+
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 from datetime import datetime
 from pydantic import EmailStr
 
@@ -63,23 +86,17 @@ class OTPLoginRequest(BaseModel):
 class AgentUsage(BaseModel):
     agent_type: str
 
+# Disconnect Request Schema
+class DisconnectRequest(BaseModel):
+    agent_type: str
+    conversation_id: Optional[str] = None  # Optional because we can use the token subject if not provided
+
 # OTP Usage Schema
 class OTPUsageResponse(BaseModel):
     id: int
     otp_id: int
     agent_type: str
     timestamp: datetime
-    
-    class Config:
-        from_attributes = True
-
-# Agent Traffic Schema
-class AgentTrafficResponse(BaseModel):
-    id: int
-    agent_type: str
-    session_count: int
-    last_activity: datetime
-    is_active: bool
     
     class Config:
         from_attributes = True
@@ -146,7 +163,3 @@ class PaginatedResponse(BaseModel):
 class UsageListResponse(BaseModel):
     data: List[OTPUsageResponse]
     pagination: PaginatedResponse
-
-class TrafficListResponse(BaseModel):
-    data: List[AgentTrafficResponse]
-    pagination: PaginatedResponse 

@@ -5,6 +5,7 @@ from app.schemas.schemas import OTPResponse, OTPCreate, OTPUpdate, TokenData, OT
 from app.utils.auth import get_token_data, generate_otp, create_access_token
 from app.database.db import get_db
 from datetime import datetime, timedelta
+from app.models.models import OTP
 
 router = APIRouter(prefix="/otps", tags=["OTP Management"])
 
@@ -23,15 +24,8 @@ async def get_all_otps_endpoint(
     
     with get_db() as conn:
         otps, _ = get_all_otps(conn)
-        return [
-            OTPResponse(
-                id=otp['id'],
-                code=otp['code'],
-                max_uses=otp['max_uses'],
-                remaining_uses=otp['remaining_uses'],
-                created_at=otp['created_at']
-            ) for otp in otps
-        ]
+        # The OTP objects are already OTPResponse objects, no need to convert
+        return otps
 
 @router.post("/", response_model=List[OTPResponse])
 async def create_otps_endpoint(
@@ -53,7 +47,7 @@ async def create_otps_endpoint(
         for _ in range(otp_data.count):
             otp_code = generate_otp()
             # Calculate expiry time - optional
-            expires_at = datetime.utcnow() + timedelta(days=30)  # 30 days validity
+            expires_at = datetime.now() + timedelta(days=30)  # 30 days validity
             
             # Create OTP in database
             otp_id = create_otp(
@@ -67,13 +61,7 @@ async def create_otps_endpoint(
             otp = get_otp_by_code(conn, otp_code)
             
             # Add to response list
-            new_otps.append(OTPResponse(
-                id=otp['id'],
-                code=otp['code'],
-                max_uses=otp['max_uses'],
-                remaining_uses=otp['remaining_uses'],
-                created_at=otp['created_at']
-            ))
+            new_otps.append(otp)
     
     return new_otps
 
@@ -95,44 +83,34 @@ async def update_otp_endpoint(
             detail="Only admins can access this endpoint"
         )
     
-    with get_db() as conn:
+    with get_db() as session:
         # Check if OTP exists
-        result = conn.execute(
-            "SELECT id FROM otps WHERE id = ?", 
-            (otp_id,)
-        ).fetchone()
+        otp = session.get(OTP, otp_id)
         
-        if not result:
+        if not otp:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="OTP not found"
             )
         
         # Update OTP
-        conn.execute(
-            """
-            UPDATE otps 
-            SET max_uses = ?, remaining_uses = ?, is_used = 0
-            WHERE id = ?
-            """,
-            (otp_data.max_uses, otp_data.max_uses, otp_id)
-        )
+        otp.max_uses = otp_data.max_uses
+        otp.remaining_uses = otp_data.max_uses
+        otp.is_used = False
         
-        # Get updated OTP
-        updated_otp = conn.execute(
-            """
-            SELECT id, code, max_uses, remaining_uses, created_at
-            FROM otps WHERE id = ?
-            """,
-            (otp_id,)
-        ).fetchone()
+        session.add(otp)
+        session.commit()
+        session.refresh(otp)
         
+        # Return OTPResponse
         return OTPResponse(
-            id=updated_otp[0],
-            code=updated_otp[1],
-            max_uses=updated_otp[2],
-            remaining_uses=updated_otp[3],
-            created_at=datetime.fromisoformat(updated_otp[4]) if updated_otp[4] else None
+            id=otp.id,
+            code=otp.code,
+            max_uses=otp.max_uses,
+            remaining_uses=otp.remaining_uses,
+            is_used=otp.is_used,
+            created_at=otp.created_at,
+            expires_at=otp.expires_at
         )
 
 @router.delete("/{otp_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -149,23 +127,21 @@ async def delete_otp_endpoint(
             detail="Only admins can access this endpoint"
         )
     
-    with get_db() as conn:
+    with get_db() as session:
         # Check if OTP exists
-        result = conn.execute(
-            "SELECT id FROM otps WHERE id = ?", 
-            (otp_id,)
-        ).fetchone()
+        otp = session.get(OTP, otp_id)
         
-        if not result:
+        if not otp:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="OTP not found"
             )
         
         # Delete OTP
-        conn.execute("DELETE FROM otps WHERE id = ?", (otp_id,))
+        session.delete(otp)
+        session.commit()
     
-    return 
+    return
 
 @router.post("/login", response_model=Token)
 async def login_with_otp(
@@ -189,14 +165,14 @@ async def login_with_otp(
             )
         
         # Check if OTP has expired
-        if otp['expires_at'] and otp['expires_at'] < datetime.utcnow():
+        if otp.expires_at and otp.expires_at < datetime.utcnow():
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="OTP has expired"
             )
         
         # Check if OTP is exhausted
-        if otp['is_used'] or otp['remaining_uses'] <= 0:
+        if otp.is_used or otp.remaining_uses <= 0:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="OTP has been exhausted"
@@ -206,9 +182,9 @@ async def login_with_otp(
         access_token_expires = timedelta(minutes=60)  # 1 hour token validity
         access_token = create_access_token(
             data={
-                "username": f"otp_user_{otp['id']}",
+                "username": f"otp_user_{otp.id}",
                 "user_type": "otp", 
-                "otp_code": otp['code']
+                "otp_code": otp.code
             },
             expires_delta=access_token_expires
         )
@@ -217,5 +193,5 @@ async def login_with_otp(
             "access_token": access_token,
             "token_type": "bearer",
             "expires_in": 3600,  # 1 hour in seconds
-            "remaining_uses": otp['remaining_uses']
+            "remaining_uses": otp.remaining_uses
         } 

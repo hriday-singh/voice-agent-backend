@@ -1,0 +1,169 @@
+import os
+from typing import List, TypedDict, Dict
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.runnables import RunnableConfig
+from langgraph.graph import StateGraph, END
+from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
+from langchain_google_genai import ChatGoogleGenerativeAI
+
+# Simple state definition
+class AgentState(TypedDict):
+    messages: List[BaseMessage]
+
+# Basic agent configuration
+class AgentConfig(TypedDict):
+    agent_id: str
+    system_prompt: str
+    model_name: str
+    model_provider: str
+    temperature: float
+
+# Load agent definitions from database
+def load_agent_definitions():
+    """
+    Loads agent configurations from the database.
+    """
+    from app.utils.agent_config import list_available_agents, get_agent_system_prompt, get_agent_model_config
+    
+    agents_list = []
+    
+    # Get all available agents (enabled only)
+    available_agents = list_available_agents(include_disabled=False)
+    
+    for agent in available_agents:
+        agent_id = agent["id"]
+        
+        # Get system prompt and model config
+        system_prompt = get_agent_system_prompt(agent_id)
+        model_config = get_agent_model_config(agent_id)
+        
+        # Create agent config
+        agent_config = {
+            "agent_id": agent_id,
+            "system_prompt": system_prompt,
+            "model_provider": model_config.get("provider", "openai"),
+            "model_name": model_config.get("name", "gpt-3.5-turbo"),
+            "temperature": model_config.get("temperature", 0.7)
+        }
+        
+        agents_list.append(agent_config)
+    
+    # If no agents found, provide fallbacks
+    if not agents_list:
+        # Add default agents
+        agents_list.extend([
+            {
+                "agent_id": "realestate",
+                "system_prompt": "You are a real estate agent who helps clients find properties.",
+                "model_provider": "openai",
+                "model_name": "gpt-3.5-turbo",
+                "temperature": 0.7
+            }
+        ])
+    
+    return agents_list
+
+# Initialize agent registry
+AGENT_REGISTRY = {agent['agent_id']: agent for agent in load_agent_definitions()}
+
+# Node function
+def agent_node(state: AgentState, config: RunnableConfig):
+    """LangGraph node that calls the appropriate LLM based on agent config."""
+    # Get agent config from the configurable
+    agent_config = config['configurable'].get('agent_config', {})
+    agent_id = agent_config.get('agent_id', 'unknown')
+    
+    # Extract model details
+    provider = agent_config.get('model_provider', 'openai').lower()
+    model_name = agent_config.get('model_name', 'gpt-3.5-turbo')
+    system_prompt = agent_config.get('system_prompt', 'You are a helpful assistant.')
+    temperature = agent_config.get('temperature', 0.7)
+    
+    # Create the appropriate LLM based on provider
+    try:
+        if provider == 'openai':
+            llm = ChatOpenAI(model=model_name, temperature=temperature)
+        elif provider == 'anthropic':
+            api_key = os.getenv("CLAUDE_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
+            llm = ChatAnthropic(model=model_name, temperature=temperature, api_key=api_key)
+        elif provider in ['google', 'gemini']:
+            llm = ChatGoogleGenerativeAI(model=model_name, temperature=temperature)
+        else:
+            # Default to OpenAI if provider not recognized
+            llm = ChatOpenAI(model=model_name, temperature=temperature)
+    except Exception:
+        # Fallback to OpenAI on any error
+        llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.7)
+    
+    # Create the prompt
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", system_prompt),
+        MessagesPlaceholder(variable_name="messages")
+    ])
+    
+    # Create the chain
+    chain = prompt | llm
+    
+    # Run the chain
+    try:
+        # Get messages from state
+        messages = state.get('messages', [])
+        
+        # Get response from the LLM
+        response = chain.invoke({"messages": messages})
+        
+        # Return updated state
+        return {"messages": messages + [response]}
+    except Exception as e:
+        # Simple error handling
+        return {"messages": messages + [AIMessage(content=f"I encountered an error: {str(e)}")]}
+
+# Build the graph
+builder = StateGraph(AgentState)
+builder.add_node("agent", agent_node)
+builder.set_entry_point("agent")
+builder.add_edge("agent", END)
+
+# Compile the graph
+graph = builder.compile()
+
+# Function to get agent responses
+def get_agent_response(agent_id: str, user_input: str, conversation_id: str) -> str:
+    """Get a response from an agent."""
+    # Get the agent configuration
+    agent_config = AGENT_REGISTRY.get(agent_id)
+    if not agent_config:
+        return f"Error: Agent '{agent_id}' not found."
+    
+    # Create input with the user's message
+    input_state = {"messages": [HumanMessage(content=user_input)]}
+    
+    # Set up configuration with thread_id and agent_config
+    config = {
+        "configurable": {
+            "thread_id": conversation_id,
+            "agent_config": agent_config
+        }
+    }
+    
+    try:
+        # Run the graph
+        output_state = graph.invoke(input_state, config)
+        
+        # Extract the AI message
+        if output_state and "messages" in output_state and output_state["messages"]:
+            ai_message = output_state["messages"][-1]
+            if hasattr(ai_message, "content"):
+                return ai_message.content
+        
+        return "No response generated."
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+def reload_agent_registry():
+    """Reload the agent registry."""
+    global AGENT_REGISTRY
+    AGENT_REGISTRY = {agent['agent_id']: agent for agent in load_agent_definitions()}
+    return len(AGENT_REGISTRY)

@@ -18,7 +18,7 @@ async def login_admin(
     with get_db() as conn:
         admin = get_admin_by_username(conn, form_data.username)
         
-        if not admin or not verify_password(form_data.password, admin['password_hash']):
+        if not admin or not verify_password(form_data.password, admin.password_hash):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect username or password",
@@ -27,7 +27,7 @@ async def login_admin(
             
         # Create access token
         access_token = create_access_token(
-            data={"username": admin['username'], "user_type": "admin"}
+            data={"username": admin.username, "user_type": "admin"}
         )
         
         return {"access_token": access_token, "token_type": "bearer"}
@@ -47,14 +47,14 @@ async def login_otp(otp_data: OTPLogin):
             )
         
         # Check if OTP has expired
-        if otp['expires_at'] and otp['expires_at'] < datetime.utcnow():
+        if otp.expires_at and otp.expires_at < datetime.utcnow():
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="OTP has expired",
             )
         
         # Check if OTP is exhausted
-        if otp['is_used'] or otp['remaining_uses'] <= 0:
+        if otp.is_used or otp.remaining_uses <= 0:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="OTP has been exhausted",
@@ -62,10 +62,10 @@ async def login_otp(otp_data: OTPLogin):
         
         # Create access token
         access_token = create_access_token(
-            data={"user_type": "otp", "otp_code": otp['code']}
+            data={"user_type": "otp", "otp_code": otp.code}
         )
         
-        return {"access_token": access_token, "token_type": "bearer", "remaining_uses": otp['remaining_uses']}
+        return {"access_token": access_token, "token_type": "bearer", "remaining_uses": otp.remaining_uses}
 
 @router.put("/change-password", status_code=status.HTTP_200_OK)
 async def change_admin_password(
@@ -83,9 +83,9 @@ async def change_admin_password(
             detail="Only admin users can change their password"
         )
     
-    with get_db() as conn:
+    with get_db() as session:
         # Get the admin
-        admin = get_admin_by_username(conn, token_data.username)
+        admin = get_admin_by_username(session, token_data.username)
         if not admin:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -93,7 +93,7 @@ async def change_admin_password(
             )
         
         # Verify current password
-        if not verify_password(password_data.current_password, admin['password_hash']):
+        if not verify_password(password_data.current_password, admin.password_hash):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Current password is incorrect"
@@ -117,7 +117,7 @@ async def change_admin_password(
             # Hash the new password
             new_password_hash = get_password_hash(password_data.new_password)
             # Update admin password
-            update_admin_password(conn, admin['id'], new_password_hash)
+            update_admin_password(session, admin.id, new_password_hash)
             
             return {"message": "Password changed successfully"}
         except Exception as e:

@@ -5,6 +5,7 @@ import {
   Routes,
   Navigate,
   Link,
+  useLocation,
 } from "react-router-dom";
 import AdminLogin from "./components/Auth/AdminLogin";
 import OTPLogin from "./components/Auth/OTPLogin";
@@ -12,11 +13,16 @@ import VoiceAgentPage from "./components/VoiceAgent/VoiceAgentPage";
 import OTPManagement from "./components/Admin/OTPManagement";
 import OTPList from "./components/Admin/OTPList";
 import AgentConfiguration from "./components/Admin/AgentConfiguration";
+import AgentEdit from "./components/Admin/AgentEdit";
+import AgentCreate from "./components/Admin/AgentCreate";
+import LLMModels from "./components/Admin/LLMModels";
 import PasswordChange from "./components/Admin/PasswordChange";
 import AnimatedLogo from "./components/Common/AnimatedLogo";
 import { isAuthenticated, logout } from "./services/auth";
 import "./App.css";
 import { HiMenu, HiX } from "react-icons/hi";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faDatabase } from "@fortawesome/free-solid-svg-icons";
 
 const App: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(isAuthenticated());
@@ -95,28 +101,7 @@ const App: React.FC = () => {
 
                 {/* Desktop Navigation */}
                 <div className="hidden md:flex items-center space-x-6">
-                  {userType === "admin" && (
-                    <nav className="flex space-x-6">
-                      <Link
-                        to="/admin/otps"
-                        className="text-[#f2efe3] hover:text-[#ffcc33] transition-colors font-medium relative after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-[#ffcc33] after:transition-all hover:after:w-full"
-                      >
-                        OTP Management
-                      </Link>
-                      <Link
-                        to="/admin/agents"
-                        className="text-[#f2efe3] hover:text-[#ffcc33] transition-colors font-medium relative after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-[#ffcc33] after:transition-all hover:after:w-full"
-                      >
-                        Agent Configuration
-                      </Link>
-                      <Link
-                        to="/admin/password"
-                        className="text-[#f2efe3] hover:text-[#ffcc33] transition-colors font-medium relative after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-[#ffcc33] after:transition-all hover:after:w-full"
-                      >
-                        Change Password
-                      </Link>
-                    </nav>
-                  )}
+                  {userType === "admin" && <AdminNav />}
                   <button
                     className="px-4 py-2 rounded-md bg-transparent border border-[#ffcc33] text-[#ffcc33] hover:bg-[#ffcc33] hover:text-[#0c0807] transition-colors"
                     onClick={handleLogout}
@@ -142,36 +127,7 @@ const App: React.FC = () => {
               {isMobileMenuOpen && (
                 <div className="md:hidden mt-4 pb-4 border-t border-[#31261a] pt-4">
                   {userType === "admin" && (
-                    <nav className="flex flex-col space-y-4">
-                      <Link
-                        to="/admin/otps"
-                        className="text-[#f2efe3] hover:text-[#ffcc33] transition-colors font-medium py-2"
-                        onClick={closeMobileMenu}
-                      >
-                        OTP Management
-                      </Link>
-                      <Link
-                        to="/admin/agents"
-                        className="text-[#f2efe3] hover:text-[#ffcc33] transition-colors font-medium py-2"
-                        onClick={closeMobileMenu}
-                      >
-                        Agent Configuration
-                      </Link>
-                      <Link
-                        to="/admin/recordings"
-                        className="text-[#f2efe3] hover:text-[#ffcc33] transition-colors font-medium py-2"
-                        onClick={closeMobileMenu}
-                      >
-                        Audio Recordings
-                      </Link>
-                      <Link
-                        to="/admin/password"
-                        className="text-[#f2efe3] hover:text-[#ffcc33] transition-colors font-medium py-2"
-                        onClick={closeMobileMenu}
-                      >
-                        Change Password
-                      </Link>
-                    </nav>
+                    <AdminMobileNav closeMobileMenu={closeMobileMenu} />
                   )}
                   <div className="mt-4">
                     <button
@@ -220,6 +176,9 @@ const App: React.FC = () => {
                       <Route path="otps" element={<OTPList />} />
                       <Route path="otp-requests" element={<OTPManagement />} />
                       <Route path="agents" element={<AgentConfiguration />} />
+                      <Route path="agents/:id" element={<AgentEdit />} />
+                      <Route path="agents/new" element={<AgentCreate />} />
+                      <Route path="llm-models" element={<LLMModels />} />
                       <Route path="password" element={<PasswordChange />} />
                       <Route
                         index
@@ -256,6 +215,91 @@ const App: React.FC = () => {
         </main>
       </div>
     </Router>
+  );
+};
+
+const AdminNav = () => {
+  const location = useLocation();
+
+  return (
+    <nav className="flex space-x-6">
+      <Link
+        to="/"
+        className="text-[#f2efe3] hover:text-[#ffcc33] transition-colors font-medium relative after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-[#ffcc33] after:transition-all hover:after:w-full"
+      >
+        Agent Portal
+      </Link>
+      <Link
+        to="/admin/otps"
+        className="text-[#f2efe3] hover:text-[#ffcc33] transition-colors font-medium relative after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-[#ffcc33] after:transition-all hover:after:w-full"
+      >
+        OTP Management
+      </Link>
+      <Link
+        to="/admin/agents"
+        className="text-[#f2efe3] hover:text-[#ffcc33] transition-colors font-medium relative after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-[#ffcc33] after:transition-all hover:after:w-full"
+      >
+        Agent Configuration
+      </Link>
+      <Link
+        to="/admin/llm-models"
+        className="text-[#f2efe3] hover:text-[#ffcc33] transition-colors font-medium relative after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-[#ffcc33] after:transition-all hover:after:w-full"
+      >
+        LLM Models
+      </Link>
+      <Link
+        to="/admin/password"
+        className="text-[#f2efe3] hover:text-[#ffcc33] transition-colors font-medium relative after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-[#ffcc33] after:transition-all hover:after:w-full"
+      >
+        Change Password
+      </Link>
+    </nav>
+  );
+};
+
+const AdminMobileNav = ({
+  closeMobileMenu,
+}: {
+  closeMobileMenu: () => void;
+}) => {
+  return (
+    <nav className="flex flex-col space-y-4">
+      <Link
+        to="/"
+        className="text-[#f2efe3] hover:text-[#ffcc33] transition-colors font-medium py-2"
+        onClick={closeMobileMenu}
+      >
+        Agent Portal
+      </Link>
+      <Link
+        to="/admin/otps"
+        className="text-[#f2efe3] hover:text-[#ffcc33] transition-colors font-medium py-2"
+        onClick={closeMobileMenu}
+      >
+        OTP Management
+      </Link>
+      <Link
+        to="/admin/agents"
+        className="text-[#f2efe3] hover:text-[#ffcc33] transition-colors font-medium py-2"
+        onClick={closeMobileMenu}
+      >
+        Agent Configuration
+      </Link>
+      <Link
+        to="/admin/llm-models"
+        className="text-[#f2efe3] hover:text-[#ffcc33] transition-colors font-medium py-2"
+        onClick={closeMobileMenu}
+      >
+        LLM Models
+      </Link>
+      <Link
+        to="/admin/password"
+        className="text-[#f2efe3] hover:text-[#ffcc33] transition-colors font-medium py-2"
+        onClick={closeMobileMenu}
+      >
+        Change Password
+      </Link>
+    </nav>
   );
 };
 

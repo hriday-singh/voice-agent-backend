@@ -17,7 +17,6 @@ from google.cloud import texttospeech
 from google.cloud import speech
 import logging
 from app.utils.agent_config import get_agent_languages, get_agent_speech_context
-from abc import ABC, abstractmethod
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -289,7 +288,7 @@ class STTWrapper:
         audio_file = io.BytesIO(wav_data)
 
         # Save the audio file
-        self.audio_processor.save_audio(wav_data)
+        # self.audio_processor.save_audio(wav_data)
         
         # Transcribe with agent type if available
         transcript, detected_language = self.provider.transcribe(audio_file, self.current_agent_type)
@@ -976,7 +975,7 @@ class GoogleTTS:
                 return b""            
             
             # Get voice configuration for current language
-            voice_config = self.voice_config.get(self.current_language, self.voice_config['telugu'])
+            voice_config = self.voice_config.get(self.current_language, self.voice_config['hindi'])
             
             synthesis_input = texttospeech.SynthesisInput(ssml=ssml_text)
 

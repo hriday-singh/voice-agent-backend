@@ -378,7 +378,7 @@ export const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
     <canvas
       ref={canvasRef}
       className="w-full h-full rounded-full min-h-[200px]"
-      style={{ background: "rgba(26, 19, 16, 1)" }}
+      style={{ background: "rgba(26, 19, 16, 1)", padding: "0" }}
     />
   );
 };

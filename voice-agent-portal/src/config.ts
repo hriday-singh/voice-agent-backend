@@ -13,9 +13,7 @@ export const BACKEND_CONFIG = {
       list: "/api/agents/list",
       access: "/api/agents/access",
       usage: "/api/agents/usage",
-      traffic: "/api/agents/traffic",
       clearUsage: "/api/agents/usage/clear",
-      clearTraffic: "/api/agents/traffic/clear",
       stream: "/api/voice-agents/stream",
     },
     admin: {

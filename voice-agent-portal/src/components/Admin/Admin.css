@@ -16,12 +16,6 @@
 .agent-configuration h3,
 .system-configuration h3,
 .usage-statistics h3,
-.traffic-statistics h3 {
-  color: #34495e;
-  margin: 20px 0;
-  font-size: 20px;
-}
-
 .loading-spinner-container {
   display: flex;
   align-items: center;
@@ -285,14 +279,11 @@
   overflow-y: auto;
 }
 
-/* Usage and Traffic Statistics Styles */
-.usage-statistics,
-.traffic-statistics {
+.usage-statistics {
   margin-top: 20px;
 }
 
-.usage-statistics .info-text,
-.traffic-statistics .info-text {
+.usage-statistics .info-text {
   margin-bottom: 15px;
 }
 
@@ -300,13 +291,11 @@
   overflow-x: auto;
 }
 
-.usage-statistics .data-table td,
-.traffic-statistics .data-table td {
+.usage-statistics .data-table td {
   white-space: nowrap;
 }
 
-.usage-statistics .action-bar,
-.traffic-statistics .action-bar {
+.usage-statistics .action-bar {
   margin-bottom: 15px;
   display: flex;
   justify-content: flex-end;
@@ -351,4 +340,117 @@
     flex: 1 0 50%;
     text-align: center;
   }
+}
+
+/* LLM Models Styles */
+.llm-models-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 20px auto;
+  padding: 20px;
+}
+
+.llm-sections {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.llm-providers-section,
+.llm-models-section {
+  flex: 1;
+  min-width: 400px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.provider-list,
+.model-list {
+  margin-bottom: 20px;
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.provider-item,
+.model-item {
+  padding: 10px 15px;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+
+.provider-item:hover {
+  background-color: #f1f1f1;
+}
+
+.provider-item.selected {
+  background-color: #e3efff;
+}
+
+.provider-name {
+  font-weight: bold;
+}
+
+.model-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.model-name {
+  font-weight: bold;
+}
+
+.model-id,
+.model-temp {
+  font-size: 0.9em;
+  color: #666;
+}
+
+.add-provider-form,
+.add-model-form {
+  background-color: #fff;
+  padding: 15px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+}
+
+.add-provider-form h4,
+.add-model-form h4 {
+  margin-top: 0;
+  margin-bottom: 15px;
+}
+
+.no-models {
+  padding: 20px;
+  text-align: center;
+  color: #888;
+}
+
+/* Limitations styles for agent configuration */
+.limitations-container {
+  margin-top: 15px;
+}
+
+.limitation-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.limitation-text {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin-right: 8px;
+}
+
+.add-limitation-btn {
+  margin-top: 8px;
 }
