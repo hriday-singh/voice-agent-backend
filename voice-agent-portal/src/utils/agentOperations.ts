@@ -15,7 +15,6 @@ export const createNewAgent = async (
     agent_type: agentData.agent_type || "",
     name: agentData.name || "",
     description: agentData.description || "",
-    api_path: `/voice-agents/${agentData.agent_type}`,
     startup_message:
       agentData.startup_message ||
       "<speak>Welcome to our service. How may I help you today?</speak>",
@@ -68,14 +67,8 @@ export const updateExistingAgent = async (
 ): Promise<AgentDetail> => {
   console.log("Updating agent:", agentData);
 
-  // Ensure the API path is set correctly
-  const agentToSave = {
-    ...agentData,
-    api_path: `/voice-agents/${agentData.agent_type}`,
-  };
-
   try {
-    const result = await updateAgent(agentId, agentToSave);
+    const result = await updateAgent(agentId, agentData);
     return result;
   } catch (error: any) {
     console.error("Agent update failed:", error);

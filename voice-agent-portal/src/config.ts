@@ -14,7 +14,6 @@ export const BACKEND_CONFIG = {
       access: "/api/agents/access",
       usage: "/api/agents/usage",
       clearUsage: "/api/agents/usage/clear",
-      stream: "/api/voice-agents/stream",
     },
     admin: {
       agents: "/api/admin/agents",
@@ -29,12 +28,4 @@ export const BACKEND_CONFIG = {
       changePassword: "/api/auth/change-password",
     },
   },
-};
-
-// Helper function to get the WebSocket URL
-export const getWebSocketUrl = (agentType: string, token: string) => {
-  const host = BACKEND_CONFIG.baseUrl.replace(/^https?:\/\//, "");
-  return `${BACKEND_CONFIG.wsProtocol}//${host}${
-    BACKEND_CONFIG.endpoints.agents.stream
-  }?agent_type=${agentType}&token=${encodeURIComponent(token)}`;
 };

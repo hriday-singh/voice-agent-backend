@@ -36,7 +36,6 @@ class AgentConfig(SQLModel, table=True):
     agent_type: str = Field(unique=True, index=True)
     name: str
     description: str
-    api_path: str
     startup_message: str
     system_prompt: str = Field(default="")
     enabled: bool = Field(default=True)
@@ -326,7 +325,6 @@ def get_agent_config_as_dict(session: Session, agent_type: str) -> Optional[Dict
         "agent_type": agent_config.agent_type,
         "name": agent_config.name,
         "description": agent_config.description,
-        "api_path": agent_config.api_path,
         "startup_message": agent_config.startup_message,
         "system_prompt": agent_config.system_prompt,
         "enabled": agent_config.enabled,
@@ -607,7 +605,6 @@ def agent_config_to_response(agent_config: AgentConfig) -> Dict[str, Any]:
         "agent_type": agent_config.agent_type,
         "name": agent_config.name,
         "description": agent_config.description,
-        "api_path": agent_config.api_path,
         "startup_message": agent_config.startup_message,
         "system_prompt": agent_config.system_prompt,
         "enabled": agent_config.enabled,
@@ -632,7 +629,6 @@ def agent_configs_to_responses(configs: List[AgentConfig]) -> List[Dict[str, Any
             "agent_type": config.agent_type,
             "name": config.name,
             "description": config.description,
-            "api_path": config.api_path,
             "startup_message": config.startup_message,
             "system_prompt": config.system_prompt,
             "enabled": config.enabled,

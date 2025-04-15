@@ -202,7 +202,7 @@ def list_available_agents(include_disabled: bool = False) -> List[Dict[str, Any]
                     "id": agent.agent_type,
                     "name": agent.name,
                     "description": agent.description,
-                    "api_path": agent.api_path,
+                    "api_path": f"/voice-agents/{agent.agent_type}",
                     "is_outbound": agent.is_outbound,
                     "primary_language": languages.get("primary", "en-IN"),
                     "tags": agent.get_tags()

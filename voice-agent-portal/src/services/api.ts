@@ -539,7 +539,6 @@ export interface AgentDetail {
   name: string;
   description: string;
   agent_type: string;
-  api_path: string;
   startup_message: string;
   system_prompt: string;
   voice_name: string;

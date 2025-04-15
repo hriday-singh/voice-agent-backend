@@ -53,21 +53,7 @@ def load_agent_definitions():
             "temperature": model_config.get("temperature", 0.7)
         }
         
-        agents_list.append(agent_config)
-    
-    # If no agents found, provide fallbacks
-    if not agents_list:
-        # Add default agents
-        agents_list.extend([
-            {
-                "agent_id": "realestate",
-                "system_prompt": "You are a real estate agent who helps clients find properties.",
-                "model_provider": "openai",
-                "model_name": "gpt-3.5-turbo",
-                "temperature": 0.7
-            }
-        ])
-    
+        agents_list.append(agent_config)  
     return agents_list
 
 # Initialize agent registry
@@ -83,7 +69,7 @@ def agent_node(state: AgentState, config: RunnableConfig):
     # Extract model details
     provider = agent_config.get('model_provider', 'openai').lower()
     model_name = agent_config.get('model_name', 'gpt-3.5-turbo')
-    system_prompt = agent_config.get('system_prompt', 'You are a helpful assistant.')
+    system_prompt = agent_config.get('system_prompt', 'You are a helpful assistant. Only respoond in SSML format.')
     temperature = agent_config.get('temperature', 0.7)
     
     # Create the appropriate LLM based on provider

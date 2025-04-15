@@ -13,7 +13,6 @@ import AnimatedLogo from "../Common/AnimatedLogo";
 const defaultAgent: Partial<AgentDetail> = {
   name: "",
   description: "",
-  api_path: "",
   startup_message:
     "<speak>Welcome to our service. How may I help you today?</speak>",
   system_prompt: "You are a helpful assistant...",
@@ -80,12 +79,6 @@ const AgentCreate: React.FC = () => {
     const { name, value } = e.target;
     setAgent((prev) => {
       const updates = { ...prev, [name]: value };
-
-      // Update api_path automatically when agent_type changes
-      if (name === "agent_type") {
-        updates.api_path = `/voice-agents/${value}`;
-      }
-
       return updates;
     });
   };
@@ -505,20 +498,6 @@ const AgentCreate: React.FC = () => {
                   and underscores
                 </p>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  API Path
-                </label>
-                <div className="flex items-center w-full px-3 py-2 border border-[#e7e2d3] bg-gray-50 rounded-md text-gray-500">
-                  {agent.api_path ||
-                    `/voice-agents/${agent.agent_type || "[agent-type]"}`}
-                </div>
-                <p className="text-xs text-[#6c6c6c] mt-1">
-                  Path is automatically generated from Agent Type
-                </p>
-              </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-white p-4 rounded-lg border border-[#e7e2d3]">
                   <div className="flex justify-between items-start">

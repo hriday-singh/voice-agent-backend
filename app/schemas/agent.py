@@ -8,7 +8,6 @@ class AgentUsage(BaseModel):
 class AgentConfigBase(BaseModel):
     name: str
     description: str
-    api_path: str
     startup_message: str
     system_prompt: str = ""
     enabled: bool = True
