@@ -32,15 +32,77 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
   const dataChannelRef = useRef<RTCDataChannel | null>(null);
   const webrtcIdRef = useRef<string>("");
 
+  // Web Audio refs for mic processing and remote analysis
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const gainNodeRef = useRef<GainNode | null>(null);
+  const remoteAnalyserRef = useRef<AnalyserNode | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  // Keep track if mic gain is lowered
+  const micLowRef = useRef<boolean>(false);
+
   // Notify parent of connection state changes
   useEffect(() => {
     onConnectionChange?.(isConnected);
   }, [isConnected, onConnectionChange]);
+  // Define a decay duration in milliseconds (e.g., 500ms)
+  const DECAY_DURATION = 500;
+  // Track the last time when the remote output was above threshold
+  let lastActiveTime = performance.now();
 
-  // Setup microphone
+  const checkRemoteOutputLevel = () => {
+    if (remoteAnalyserRef.current && gainNodeRef.current) {
+      const analyser = remoteAnalyserRef.current;
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(dataArray);
+      // Calculate simple average volume
+      const avg =
+        dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
+      const threshold = 10; // adjust this threshold as needed
+      const now = performance.now();
+
+      if (avg > threshold) {
+        // Record the current time as the last moment of activity.
+        lastActiveTime = now;
+        // Lower mic gain if not already lowered
+        if (!micLowRef.current) {
+          gainNodeRef.current.gain.value = 0.3; // Lower gain value
+          console.log("Mic gain lowered due to remote output activity");
+          micLowRef.current = true;
+        }
+      } else if (micLowRef.current) {
+        // Only restore gain if enough time has passed without activity.
+        if (now - lastActiveTime > DECAY_DURATION) {
+          gainNodeRef.current.gain.value = 1.0;
+          console.log("Mic gain restored as remote output remained quiet");
+          micLowRef.current = false;
+        }
+      }
+    }
+    animationFrameRef.current = requestAnimationFrame(checkRemoteOutputLevel);
+  };
+
+  // Setup an analyser for the remote output stream
+  const setupRemoteAnalyser = (remoteStream: MediaStream) => {
+    // Reuse the AudioContext if available or create a new one
+    const ac = audioContextRef.current || new AudioContext();
+    if (!audioContextRef.current) {
+      audioContextRef.current = ac;
+    }
+    const remoteSource = ac.createMediaStreamSource(remoteStream);
+    const analyser = ac.createAnalyser();
+    analyser.fftSize = 256; // smaller fftSize for lower latency in analysis
+    remoteSource.connect(analyser);
+    remoteAnalyserRef.current = analyser;
+    // Start monitoring
+    if (!animationFrameRef.current) {
+      animationFrameRef.current = requestAnimationFrame(checkRemoteOutputLevel);
+    }
+  };
+
+  // Setup microphone with gain processing
   const setupMicrophone = async () => {
     try {
-      // Get the stream for our local UI
+      // Get the microphone stream
       const micStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: { ideal: true },
@@ -51,8 +113,19 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
         },
       });
 
-      // Set the local stream for UI purposes
-      setStream(micStream);
+      // Create an AudioContext and process the mic stream through a GainNode
+      const audioContext = new AudioContext();
+      audioContextRef.current = audioContext;
+      const micSource = audioContext.createMediaStreamSource(micStream);
+      const gainNode = audioContext.createGain();
+      gainNode.gain.value = 1.0; // start with full gain
+      gainNodeRef.current = gainNode;
+      micSource.connect(gainNode);
+      const destination = audioContext.createMediaStreamDestination();
+      gainNode.connect(destination);
+
+      // Use the processed stream for further WebRTC processing
+      setStream(destination.stream);
       setErrorMessage("");
       // console.log("Microphone setup successful");
     } catch (err) {
@@ -89,7 +162,7 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
       });
       peerConnectionRef.current = pc;
 
-      // Add audio tracks to the peer connection
+      // Add processed audio tracks to the peer connection
       stream.getTracks().forEach((track) => {
         pc.addTrack(track, stream);
       });
@@ -101,6 +174,8 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
           audioRef.current.srcObject = evt.streams[0];
           setOutputStream(evt.streams[0]);
           setAudioActive(true);
+          // Setup analyser for remote output to control mic gain
+          setupRemoteAnalyser(evt.streams[0]);
         }
       });
 
@@ -120,10 +195,9 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
       webrtcIdRef.current = Math.random().toString(36).substring(7);
       const webrtc_id = Math.random().toString(36).substring(7);
 
-      // Send ice candidates immediately
+      // Send ICE candidates immediately
       pc.onicecandidate = ({ candidate }) => {
         if (candidate) {
-          // console.log("Sending ICE candidate", candidate);
           fetch(webrtcEndpoint, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -136,9 +210,6 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
         }
       };
 
-      // Send initial offer immediately
-      // console.log("Sending initial offer:", pc.localDescription);
-      // console.log("Webrtc ID:", webrtc_id);
       const response = await fetch(webrtcEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -151,7 +222,6 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
 
       // Handle server response
       const serverResponse = await response.json();
-      // console.log("Received server response:", serverResponse);
       await pc.setRemoteDescription(serverResponse);
 
       // Setup data channel handlers
@@ -162,7 +232,6 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
       dataChannel.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
-          // console.log("Received message from server:", message);
         } catch (e) {
           console.log("Received raw message:", event.data);
         }
@@ -236,6 +305,12 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
       setAudioActive(false);
       setOutputStream(null);
 
+      // Cancel remote level monitoring if running
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+
       // Close the peer connection
       if (peerConnectionRef.current) {
         peerConnectionRef.current.close();
@@ -267,7 +342,6 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
 
   // Clean up on unmount
   useEffect(() => {
-    // Ensure proper cleanup on unmount
     return () => {
       try {
         console.log("Component unmounting, cleaning up resources...");
@@ -298,6 +372,11 @@ const AudioAgent: React.FC<AudioAgentProps> = ({
         // Close data channel
         if (dataChannelRef.current) {
           dataChannelRef.current.close();
+        }
+
+        // Cancel any active animation frame for remote monitoring
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
         }
 
         console.log("Resources cleaned up");

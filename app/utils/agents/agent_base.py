@@ -45,8 +45,8 @@ class VoiceAgent:
         # Configure audio options
         self.options = AlgoOptions(
             audio_chunk_duration=1.5,
-            started_talking_threshold=0.3,
-            speech_threshold=0.14,
+            started_talking_threshold=0.25,
+            speech_threshold=0.15,
         )
         
         self.rtc_configuration = {
@@ -68,9 +68,9 @@ class VoiceAgent:
                 self.process_audio, 
                 algo_options=self.options, 
                 model_options=SileroVadOptions(
-                    threshold=0.96,
-                    min_silence_duration_ms=2000,
-                    speech_pad_ms=250
+                    threshold=0.95,
+                    min_silence_duration_ms=1800,
+                    speech_pad_ms=200
                 ),
                 startup_fn=self.startup,
                 input_sample_rate=16000

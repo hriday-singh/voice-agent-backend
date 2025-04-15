@@ -13,6 +13,7 @@ class AdminLogin(AdminBase):
 
 class AdminResponse(AdminBase):
     id: int
+    conversation_id: Optional[str] = None
     
     class Config:
         from_attributes = True

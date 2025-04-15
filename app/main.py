@@ -48,7 +48,8 @@ async def lifespan(app: FastAPI):
                     logger.info("Admin not found, creating default admin account...")
                     admin = Admin(
                         username="cawadmin",
-                        password_hash=get_password_hash("adminc@w")
+                        password_hash=get_password_hash("adminc@w"),
+                        conversation_id=str(secrets.token_hex(16))
                     )
                     session.add(admin)
                     session.commit()

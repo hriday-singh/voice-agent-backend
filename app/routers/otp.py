@@ -110,7 +110,8 @@ async def update_otp_endpoint(
             remaining_uses=otp.remaining_uses,
             is_used=otp.is_used,
             created_at=otp.created_at,
-            expires_at=otp.expires_at
+            expires_at=otp.expires_at,
+            conversation_id=otp.conversation_id
         )
 
 @router.delete("/{otp_id}", status_code=status.HTTP_204_NO_CONTENT)

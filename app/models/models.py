@@ -6,6 +6,7 @@ from app.schemas.admin import AdminResponse
 from app.schemas.otp import OTPResponse, OTPUsageResponse
 from app.schemas.agent import AgentConfigResponse, GlobalConfigResponse, LLMProviderResponse, LLMModelResponse
 import logging
+from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +15,7 @@ class Admin(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     username: str = Field(unique=True)
     password_hash: str
+    conversation_id: Optional[str] = Field(default_factory=lambda: str(uuid4()), nullable=True)
 
 class OTP(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -23,6 +25,7 @@ class OTP(SQLModel, table=True):
     is_used: bool = Field(default=False)
     created_at: datetime = Field(default_factory=datetime.now)
     expires_at: Optional[datetime] = None
+    conversation_id: str = Field(default_factory=lambda: str(uuid4()))
 
 class OTPUsage(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -121,7 +124,8 @@ class LLMModel(SQLModel, table=True):
 # Admin model functions
 def create_admin(session: Session, username: str, password_hash: str) -> int:
     """Create a new admin and return its ID"""
-    admin = Admin(username=username, password_hash=password_hash)
+    conversation_id = str(uuid4())
+    admin = Admin(username=username, password_hash=password_hash, conversation_id=conversation_id)
     session.add(admin)
     session.commit()
     session.refresh(admin)
@@ -146,11 +150,13 @@ def update_admin_password(session: Session, admin_id: int, password_hash: str) -
 # OTP model functions
 def create_otp(session: Session, code: str, max_uses: int = 5, expires_at: Optional[datetime] = None) -> int:
     """Create a new OTP and return its ID"""
+    conversation_id = str(uuid4())
     otp = OTP(
         code=code,
         max_uses=max_uses,
         remaining_uses=max_uses,
-        expires_at=expires_at
+        expires_at=expires_at,
+        conversation_id=conversation_id
     )
     session.add(otp)
     session.commit()
@@ -171,7 +177,8 @@ def get_otp_by_code(session: Session, code: str) -> Optional[OTPResponse]:
         remaining_uses=otp.remaining_uses,
         is_used=otp.is_used,
         created_at=otp.created_at,
-        expires_at=otp.expires_at
+        expires_at=otp.expires_at,
+        conversation_id=otp.conversation_id
     )
 
 def update_otp_usage(session: Session, otp_id: int) -> bool:
@@ -206,7 +213,8 @@ def get_all_otps(session: Session, limit: int = 100, offset: int = 0) -> Tuple[L
             remaining_uses=otp.remaining_uses,
             is_used=otp.is_used,
             created_at=otp.created_at,
-            expires_at=otp.expires_at
+            expires_at=otp.expires_at,
+            conversation_id=otp.conversation_id
         ))
     
     return result, total

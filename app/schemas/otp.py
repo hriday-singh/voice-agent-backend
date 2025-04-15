@@ -19,6 +19,7 @@ class OTPUpdate(BaseModel):
 class OTPResponse(OTPBase):
     id: int
     created_at: datetime
+    conversation_id: str
     
     class Config:
         from_attributes = True
