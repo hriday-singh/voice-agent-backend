@@ -144,7 +144,7 @@ const AgentCreate: React.FC = () => {
     select.style.border = "1px solid #ccc";
 
     if (languageCodes) {
-      Object.entries(languageCodes).forEach(([name, code]) => {
+      Object.entries(languageCodes).forEach(([code, name]) => {
         if (!currentSupported.includes(code)) {
           const option = document.createElement("option");
           option.value = code;
@@ -622,10 +622,7 @@ const AgentCreate: React.FC = () => {
                 >
                   {agent.languages?.supported.map((code) => (
                     <option key={code} value={code}>
-                      {Object.entries(languageCodes).find(
-                        ([_, c]) => c === code
-                      )?.[0] || code}{" "}
-                      ({code})
+                      {languageCodes[code] || code} ({code})
                     </option>
                   ))}
                 </select>
@@ -643,10 +640,7 @@ const AgentCreate: React.FC = () => {
                         className="bg-gray-100 px-2 py-1 rounded-full flex items-center"
                       >
                         <span className="text-sm mr-1">
-                          {Object.entries(languageCodes).find(
-                            ([_, c]) => c === lang
-                          )?.[0] || lang}{" "}
-                          ({lang})
+                          {languageCodes[lang] || lang} ({lang})
                         </span>
                         <button
                           type="button"
