@@ -69,7 +69,7 @@ class VoiceAgent:
                 algo_options=self.options, 
                 model_options=SileroVadOptions(
                     threshold=0.90,
-                    min_silence_duration_ms=1800,
+                    min_silence_duration_ms=1600,
                     speech_pad_ms=150
                 ),
                 startup_fn=self.startup,
@@ -103,9 +103,9 @@ class VoiceAgent:
     def process_audio(self, audio):
         try:
             # Process audio and get transcription
-            transcript, detected_language = self.stt_model.process_audio(audio)
+            user_input = self.stt_model.process_audio(audio)
             
-            if not transcript:
+            if not user_input:
                 return self.empty_audio_iterator()
                 error_msg = self.error_messages.get(
                     "unclear_audio", 
@@ -125,7 +125,7 @@ class VoiceAgent:
             try:
                 response_text = get_agent_response(
                     agent_id=self.agent_type,
-                    user_input=transcript,
+                    user_input=user_input,
                     conversation_id=self.conversation_id
                 )
             except Exception as e:

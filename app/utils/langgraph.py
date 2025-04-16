@@ -3,7 +3,8 @@ from typing import List, TypedDict, Dict
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableConfig
-from langgraph.graph import StateGraph, END
+from langgraph.graph import StateGraph, END, START
+from langgraph.checkpoint.memory import MemorySaver
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -90,36 +91,28 @@ def agent_node(state: AgentState, config: RunnableConfig):
         llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.7)
     
     # Create the prompt
-    prompt = ChatPromptTemplate.from_messages([
+    prompt_template = ChatPromptTemplate.from_messages([
         ("system", system_prompt),
         MessagesPlaceholder(variable_name="messages")
     ])
-    
-    # Create the chain
-    chain = prompt | llm
-    
-    # Run the chain
-    try:
-        # Get messages from state
-        messages = state.get('messages', [])
-        
-        # Get response from the LLM
-        response = chain.invoke({"messages": messages})
-        
-        # Return updated state
-        return {"messages": messages + [response]}
-    except Exception as e:
-        # Simple error handling
-        return {"messages": messages + [AIMessage(content=f"I encountered an error: {str(e)}")]}
+
+    prompt = prompt_template.invoke(state)
+    response = llm.invoke(prompt)
+    return {"messages": [response]}
+
 
 # Build the graph
 builder = StateGraph(AgentState)
-builder.add_node("agent", agent_node)
-builder.set_entry_point("agent")
-builder.add_edge("agent", END)
+builder.add_node('model',action=agent_node)
+builder.add_edge(START,'model')
+# builder.add_node("agent", agent_node)
+# builder.set_entry_point("agent")
+# builder.add_edge("agent", END)
+
+memory = MemorySaver()
 
 # Compile the graph
-graph = builder.compile()
+graph = builder.compile(checkpointer=memory)
 
 def ensure_ssml_format(text: str) -> str:
     """
@@ -134,6 +127,10 @@ def ensure_ssml_format(text: str) -> str:
     Returns:
         Properly formatted SSML string
     """
+    # Remove ```xml and ``` tags that might come from LLM responses
+    text = re.sub(r'```xml\s*', '', text)
+    text = re.sub(r'```\s*$', '', text)
+    
     # If already has speak tags, return as is
     if re.search(r'^\s*<speak.*?>.*?</speak>\s*$', text, re.DOTALL):
         return text
@@ -150,7 +147,8 @@ def get_agent_response(agent_id: str, user_input: str, conversation_id: str) -> 
         return f"Error: Agent '{agent_id}' not found."
     
     # Create input with the user's message
-    input_state = {"messages": [HumanMessage(content=user_input)]}
+    input_messages = {"messages": [HumanMessage(content=user_input)]}
+
     
     # Set up configuration with thread_id and agent_config
     config = {
@@ -162,8 +160,8 @@ def get_agent_response(agent_id: str, user_input: str, conversation_id: str) -> 
 
     try:
         # Run the graph
-        output_state = graph.invoke(input_state, config)
-        
+        output_state = graph.invoke(input_messages, config)
+       
         # Extract the AI message
         if output_state and "messages" in output_state and output_state["messages"]:
             ai_message = output_state["messages"][-1]

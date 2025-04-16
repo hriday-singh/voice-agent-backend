@@ -155,7 +155,8 @@ class STTWrapper:
         else:
             sample_rate = self.audio_processor.sample_rate
             audio_data = audio_frame
-        # Convert to WAV format
+            
+        # Convert to WAV format - only do this conversion once
         wav_data = self.audio_processor.numpy_to_wav(audio_data, sample_rate)
         
         # Create file-like object
@@ -165,9 +166,9 @@ class STTWrapper:
         # self.audio_processor.save_audio(wav_data)
         
         # Transcribe with agent type if available
-        transcript, detected_language = self.provider.transcribe(audio_file, self.current_agent_type)
+        transcript = self.provider.transcribe(audio_file, self.current_agent_type)
         
-        return transcript, detected_language
+        return transcript
 
 class TTSWrapper:
     """Wrapper around TTS implementations to standardize output format"""
@@ -184,6 +185,9 @@ class TTSWrapper:
             self.audio_proc = MP3AudioProcessor()
         else:
             self.audio_proc = AudioProcessor()
+            
+        # Set the default chunk size for streaming audio
+        self.chunk_size = 4096
 
     def set_language(self, lang: str) -> None:
         """Set the language for TTS
@@ -208,9 +212,9 @@ class TTSWrapper:
         else:
             sample_rate, audio_array = self.audio_proc.wav_to_numpy(audio_data)
         
-        chunk_size = 4096
-        for i in range(0, len(audio_array), chunk_size):
-            yield (sample_rate, audio_array[i:i + chunk_size])
+        # Stream in chunks for more efficient processing
+        for i in range(0, len(audio_array), self.chunk_size):
+            yield (sample_rate, audio_array[i:i + self.chunk_size])
 
 class ElevenLabsTTS:
     """TTS provider using ElevenLabs API"""
@@ -556,6 +560,9 @@ class GoogleSTT:
         self.api_key = os.getenv('GOOGLE_API_KEY')
         self.credentials_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
         
+        # Cache for agent settings to avoid repeated DB calls
+        self._agent_settings_cache = {}
+        
         try:
             # Try API key authentication first
             if self.api_key:
@@ -589,6 +596,39 @@ class GoogleSTT:
             logger.error(f"Error initializing Google STT client: {str(e)}")
             raise
 
+    def _get_agent_settings(self, agent_type: str) -> tuple:
+        """Get agent settings with caching to avoid repeated DB calls
+        
+        Returns:
+            tuple: (primary_language_code, alternative_language_codes, speech_context_phrases)
+        """
+        # Return from cache if available
+        if agent_type in self._agent_settings_cache:
+            return self._agent_settings_cache[agent_type]
+            
+        # Default settings
+        primary_language_code = 'en-IN'
+        alternative_language_codes = ['hi-IN', 'en-IN', 'te-IN']
+        speech_context_phrases = []
+            
+        # Get agent-specific settings
+        if agent_type:
+            agent_languages = get_agent_languages(agent_type)
+            if agent_languages:
+                # Get primary language
+                primary_language_code = agent_languages.get("primary", 'en-IN')
+                
+                # Get supported languages excluding primary
+                supported_languages = agent_languages.get("supported", [])
+                alternative_language_codes = [lang for lang in supported_languages if lang != primary_language_code]
+                
+            # Get agent-specific speech context phrases
+            speech_context_phrases = get_agent_speech_context(agent_type)
+            
+        # Cache the settings
+        self._agent_settings_cache[agent_type] = (primary_language_code, alternative_language_codes, speech_context_phrases)
+        return self._agent_settings_cache[agent_type]
+
     def transcribe(self, audio_file: BinaryIO, agent_type: Optional[str] = None) -> tuple[str, str]:
         """Convert audio file to text using Google Cloud Speech-to-Text API
         Args:
@@ -604,25 +644,8 @@ class GoogleSTT:
             # Create the recognition audio object
             audio = speech.RecognitionAudio(content=audio_content)
             
-            # Default language settings
-            primary_language_code = 'en-IN'
-            alternative_language_codes = ['hi-IN', 'en-IN', 'te-IN']
-            
-            # If agent_type is provided, get agent-specific language settings
-            if agent_type:
-                agent_languages = get_agent_languages(agent_type)
-                if agent_languages:
-                    # Get primary language
-                    primary_language_code = agent_languages.get("primary", 'en-IN')
-                    
-                    # Get supported languages excluding primary
-                    supported_languages = agent_languages.get("supported", [])
-                    alternative_language_codes = [lang for lang in supported_languages if lang != primary_language_code]
-            
-            # Get agent-specific speech context phrases if available
-            speech_context_phrases = []
-            if agent_type:
-                speech_context_phrases = get_agent_speech_context(agent_type)
+            # Get agent settings (using cached values)
+            primary_language_code, alternative_language_codes, speech_context_phrases = self._get_agent_settings(agent_type) if agent_type else ('en-IN', ['hi-IN', 'en-IN', 'te-IN'], [])
             
             # Configure speech contexts with agent-specific phrases if available
             speech_contexts = []
@@ -644,8 +667,8 @@ class GoogleSTT:
                 alternative_language_codes=alternative_language_codes,  # Use agent's supported languages
                 enable_spoken_emojis=False,
                 use_enhanced=True,
-                audio_channel_count=1,
-                speech_contexts=speech_contexts
+                audio_channel_count=1
+                # speech_contexts=speech_contexts
             )
             # Perform the transcription
             response = self.client.recognize(config=config, audio=audio)
@@ -660,27 +683,8 @@ class GoogleSTT:
             transcript = response.results[0].alternatives[0].transcript
             confidence = response.results[0].alternatives[0].confidence
             
-            # Get the detected language from response
-            detected_language_code = response.results[0].language_code
-            
-            # Convert language code to lowercase for consistent mapping
-            if detected_language_code:
-                detected_language_code = detected_language_code.lower()
-                # Map the language code (e.g., "hi-in") to our language format (e.g., "hindi")
-                detected_language = self.reverse_language_map.get(detected_language_code, 'unknown')
-                
-                # If exact match not found, try matching just the language part (e.g., "hi")
-                if detected_language == 'unknown' and '-' in detected_language_code:
-                    lang_part = detected_language_code.split('-')[0]
-                    for key, value in self.language_map.items():
-                        if value.lower().startswith(lang_part):
-                            detected_language = key
-                            break
-            else:
-                detected_language = 'unknown'
-            
-            logger.info(f"Transcribed text: '{transcript}', Detected language: {detected_language} (code: {detected_language_code}) confidence: {confidence}")
-            return transcript, detected_language
+            logger.info(f"Transcribed text: '{transcript}', confidence: {confidence}")
+            return transcript
             
         except Exception as e:
             logger.error(f"Error in GoogleSTT transcribe: {str(e)}")
