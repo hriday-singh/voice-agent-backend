@@ -44,7 +44,8 @@ export const ADMIN_AGENT_ENDPOINTS = {
   SYSTEM_CONFIG: "/admin/agents/config/system",
   USAGE: "/admin/agents/usage",
   CLEAR_USAGE: "/admin/agents/usage/clear",
-  LANGUAGE_CODES: "/admin/agents/global-configs/language-codes",
+  LANGUAGE_CODES: "/admin/agents/language-codes",
+  VOICE_CONFIG: "/admin/agents/voice-config",
 };
 
 // LLM Provider and Model endpoints

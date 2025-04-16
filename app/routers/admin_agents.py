@@ -10,7 +10,7 @@ from app.utils.agent_config import (
     get_agent_config, update_agent_config as update_config_util, get_agent_by_id, 
     list_available_agents, get_agent_system_prompt, update_agent_system_prompt, get_language_codes,
     get_agent_model_config, get_agent_error_messages,
-    get_agent_languages
+    get_agent_languages, get_voice_config, update_voice_config
 )
 from app.utils.dynamic_agents import (
     register_agent,
@@ -170,6 +170,147 @@ async def get_all_agent_configurations(
             detail=f"Failed to retrieve agent configurations: {str(e)}"
         )
 
+@router.get("/voice-config", response_model=Dict[str, Dict[str, str]])
+async def get_voice_config_endpoint(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    token_data: Dict = Depends(verify_admin)
+):
+    """
+    Get voice configuration settings
+    
+    Returns a dictionary mapping language names to their configuration:
+    ```
+    {
+        "English": {
+            "language_code": "en-IN",
+            "voice_name": "en-IN-Wavenet-E"
+        },
+        "Hindi": {
+            "language_code": "hi-IN",
+            "voice_name": "hi-IN-Wavenet-E"
+        }
+    }
+    ```
+    """
+    try:
+        voice_config = get_voice_config()
+        return voice_config
+    except Exception as e:
+        logger.error(f"Error getting voice configuration: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve voice configuration: {str(e)}"
+        )
+
+@router.post("/voice-config")
+async def save_voice_config_endpoint(
+    voice_config: Dict[str, Dict[str, str]] = Body(...),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    token_data: Dict = Depends(verify_admin)
+):
+    """
+    Save voice configuration settings
+    
+    Example request body:
+    ```json
+    {
+        "English": {
+            "language_code": "en-IN",
+            "voice_name": "en-IN-Wavenet-E"
+        },
+        "Hindi": {
+            "language_code": "hi-IN", 
+            "voice_name": "hi-IN-Wavenet-E"
+        }
+    }
+    ```
+    
+    Each language entry should have:
+    - language_code: BCP-47 language code (e.g., 'en-IN', 'hi-IN')
+    - voice_name: Provider-specific voice identifier
+    """
+    try:
+        # Validate voice config format
+        for lang, config in voice_config.items():
+            if not isinstance(config, dict):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid configuration for language '{lang}': must be an object"
+                )
+                
+            if "language_code" not in config:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Missing 'language_code' for language '{lang}'"
+                )
+                
+            if "voice_name" not in config:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Missing 'voice_name' for language '{lang}'"
+                )
+        
+        success = update_voice_config(voice_config)
+        
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to save voice configuration"
+            )
+            
+        return {
+            "message": "Voice configuration saved successfully",
+            "voice_config": voice_config
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error saving voice configuration: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to save voice configuration: {str(e)}"
+        )
+
+@router.get("/language-codes", response_model=Dict[str, str])
+async def get_language_codes_endpoint(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    token_data: Dict = Depends(verify_admin)
+):
+    """
+    Get available language codes
+    
+    Returns a dictionary mapping BCP-47 language codes to their display names:
+    ```
+    {
+        "en-IN": "English",
+        "hi-IN": "Hindi",
+        "te-IN": "Telugu",
+        "ta-IN": "Tamil",
+        "bn-IN": "Bengali"
+    }
+    ```
+    """
+    try:
+        language_codes = get_language_codes()
+        
+        # Return default language codes if none are found
+        if not language_codes:
+            language_codes = {
+                "en-IN": "English",
+                "hi-IN": "Hindi",
+                "te-IN": "Telugu",
+                "ta-IN": "Tamil",
+                "bn-IN": "Bengali"
+            }
+            
+        return language_codes
+    except Exception as e:
+        logger.error(f"Error getting language codes: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve language codes: {str(e)}"
+        )
+
 @router.get("/{agent_id}", response_model=Dict)
 async def get_agent_configuration(
     agent_id: int,
@@ -181,7 +322,6 @@ async def get_agent_configuration(
     
     Returns comprehensive information about a single agent, including:
     - All basic information (id, name, description, etc.)
-    - Voice settings (voice_name)
     - LLM settings (llm_model_id, temperature)
     - Languages and speech context
     - System prompt
@@ -528,94 +668,3 @@ async def disable_agent(
             "agent_type": agent_type,
             "enabled": False
         }
-
-# Global configuration endpoints
-@router.get("/global-configs", response_model=Dict[str, Dict])
-async def get_all_global_configurations(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    token_data: Dict = Depends(verify_admin)
-):
-    """Get all global configurations from the database"""
-    try:
-        with get_db() as session:
-            global_configs = get_all_global_configs(session)
-            return global_configs
-    except Exception as e:
-        logger.error(f"Error getting global configurations: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve global configurations: {str(e)}"
-        )
-
-@router.get("/global-configs/language-codes", response_model=Dict[str, str])
-async def get_language_codes_endpoint(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    token_data: Dict = Depends(verify_admin)
-):
-    """Get language codes from the database"""
-    return get_language_codes()
-
-@router.post("/global-configs")
-async def save_global_configuration(
-    config_data: Dict[str, Any] = Body(..., example={
-        "key": "some_config_key",
-        "value": "config_value",
-        "description": "Description of the configuration"
-    }),
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    token_data: Dict = Depends(verify_admin)
-):
-    """
-    Save or update a global configuration in the database
-    
-    Args:
-        config_data: Dictionary containing:
-            - key: Configuration key
-            - value: Configuration value (can be any JSON-serializable type)
-            - description: Optional description of the configuration
-    """
-    try:
-        if "key" not in config_data or "value" not in config_data:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Both 'key' and 'value' are required in the request body"
-            )
-
-        config_key = config_data["key"]
-        config_value = config_data["value"]
-        description = config_data.get("description", "")
-
-        # Convert value to JSON string if it's not a primitive type
-        if not isinstance(config_value, (str, int, float, bool)):
-            config_value = json.dumps(config_value)
-
-        with get_db() as session:
-            # Try to update existing config or create new one
-            success = set_global_config(
-                session, 
-                config_key, 
-                config_value,
-                description
-            )
-
-            if not success:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Failed to save global configuration for key: {config_key}"
-                )
-
-            return {
-                "message": f"Successfully saved global configuration for key: {config_key}",
-                "key": config_key,
-                "value": config_value,
-                "description": description
-            }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error saving global configuration: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to save global configuration: {str(e)}"
-        )

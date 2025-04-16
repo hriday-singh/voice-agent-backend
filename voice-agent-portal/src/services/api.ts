@@ -541,7 +541,6 @@ export interface AgentDetail {
   agent_type: string;
   startup_message: string;
   system_prompt: string;
-  voice_name: string;
   can_interrupt: boolean;
   is_outbound: boolean;
   enabled: boolean;
@@ -783,38 +782,6 @@ export const clearAgentUsage = async (): Promise<{
   }
 };
 
-export const getSystemConfig = async () => {
-  try {
-    const token = localStorage.getItem("adminToken");
-    if (!token) {
-      throw new Error("Not authenticated as admin");
-    }
-
-    const response = await api.get("/admin/agents/global-configs", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    return response.data;
-  } catch (error: any) {
-    throw new Error(getErrorMessage(error));
-  }
-};
-
-export const updateSystemConfig = async (configData: any) => {
-  try {
-    const token = localStorage.getItem("adminToken");
-    if (!token) {
-      throw new Error("Not authenticated as admin");
-    }
-
-    const response = await api.put("/admin/agents/global-configs", configData, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    return response.data;
-  } catch (error: any) {
-    throw new Error(getErrorMessage(error));
-  }
-};
-
 // LLM Provider and Model Interfaces
 export interface LLMProvider {
   id: number;
@@ -1036,6 +1003,13 @@ export interface LanguageCodes {
   [key: string]: string;
 }
 
+export interface VoiceConfig {
+  [key: string]: {
+    language_code: string;
+    voice_name: string;
+  };
+}
+
 export const getLanguageCodes = async (): Promise<LanguageCodes> => {
   try {
     const token = localStorage.getItem("adminToken");
@@ -1046,6 +1020,44 @@ export const getLanguageCodes = async (): Promise<LanguageCodes> => {
     const response = await api.get(ADMIN_AGENT_ENDPOINTS.LANGUAGE_CODES, {
       headers: { Authorization: `Bearer ${token}` },
     });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(getErrorMessage(error));
+  }
+};
+
+export const getVoiceConfig = async (): Promise<VoiceConfig> => {
+  try {
+    const token = localStorage.getItem("adminToken");
+    if (!token) {
+      throw new Error("Not authenticated as admin");
+    }
+
+    const response = await api.get(ADMIN_AGENT_ENDPOINTS.VOICE_CONFIG, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(getErrorMessage(error));
+  }
+};
+
+export const updateVoiceConfig = async (
+  voiceConfig: VoiceConfig
+): Promise<any> => {
+  try {
+    const token = localStorage.getItem("adminToken");
+    if (!token) {
+      throw new Error("Not authenticated as admin");
+    }
+
+    const response = await api.post(
+      ADMIN_AGENT_ENDPOINTS.VOICE_CONFIG,
+      voiceConfig,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
     return response.data;
   } catch (error: any) {
     throw new Error(getErrorMessage(error));

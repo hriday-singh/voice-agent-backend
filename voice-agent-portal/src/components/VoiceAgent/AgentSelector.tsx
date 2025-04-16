@@ -5,6 +5,7 @@ import { HiOutlineChat } from "react-icons/hi";
 import { IconWrapper } from "./IconWrapper";
 import { useNavigate } from "react-router-dom";
 import AnimatedLogo from "../Common/AnimatedLogo";
+import { getLanguageName } from "../../utils/languageUtils";
 
 interface Agent {
   id: string;
@@ -152,7 +153,7 @@ const AgentSelector: React.FC<AgentSelectorProps> = ({
                     {agent.is_outbound ? "Outbound" : "Inbound"}
                   </span>
                   <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">
-                    {agent.primary_language}
+                    {getLanguageName(agent.primary_language)}
                   </span>
                   <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">
                     {agent.connection_type}

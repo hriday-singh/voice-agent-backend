@@ -11,7 +11,6 @@ class AgentConfigBase(BaseModel):
     startup_message: str
     system_prompt: str = ""
     enabled: bool = True
-    voice_name: str
     is_outbound: bool = False
     languages: Dict
     speech_context: List[str]

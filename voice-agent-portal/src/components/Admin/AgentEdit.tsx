@@ -19,7 +19,6 @@ const defaultAgent: Partial<AgentDetail> = {
     "<speak>Welcome to our service. How may I help you today?</speak>",
   system_prompt: "You are a helpful assistant...",
   can_interrupt: false,
-  voice_name: "en-IN-Wavenet-E",
   limitations: [],
   llm_model_id: undefined,
   temperature: 0.7,
@@ -554,26 +553,6 @@ const AgentEdit: React.FC = () => {
                   Defines the agent's behavior and capabilities
                 </p>
               </div>
-            </div>
-          </div>
-
-          <div className="bg-[#f2efe3] p-6 rounded-lg border border-[#e7e2d3]">
-            <h3 className="text-lg font-medium mb-4">Voice Configuration</h3>
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Voice Name
-              </label>
-              <input
-                type="text"
-                name="voice_name"
-                value={agent.voice_name}
-                onChange={handleInputChange}
-                placeholder="e.g., en-US-Wavenet-F"
-                className="w-full px-3 py-2 border border-[#e7e2d3] rounded-md"
-              />
-              <p className="text-xs text-[#6c6c6c] mt-1">
-                Specify the TTS voice name to use
-              </p>
             </div>
           </div>
 

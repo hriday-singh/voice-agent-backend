@@ -15,6 +15,7 @@ import OTPList from "./components/Admin/OTPList";
 import AgentConfiguration from "./components/Admin/AgentConfiguration";
 import AgentEdit from "./components/Admin/AgentEdit";
 import AgentCreate from "./components/Admin/AgentCreate";
+import SystemConfig from "./components/Admin/SystemConfig";
 import LLMModels from "./components/Admin/LLMModels";
 import PasswordChange from "./components/Admin/PasswordChange";
 import AnimatedLogo from "./components/Common/AnimatedLogo";
@@ -22,7 +23,7 @@ import { isAuthenticated, logout } from "./services/auth";
 import "./App.css";
 import { HiMenu, HiX } from "react-icons/hi";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faDatabase } from "@fortawesome/free-solid-svg-icons";
+import { faDatabase, faCog } from "@fortawesome/free-solid-svg-icons";
 
 const App: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(isAuthenticated());
@@ -179,6 +180,7 @@ const App: React.FC = () => {
                       <Route path="agents/:id" element={<AgentEdit />} />
                       <Route path="agents/new" element={<AgentCreate />} />
                       <Route path="llm-models" element={<LLMModels />} />
+                      <Route path="system-config" element={<SystemConfig />} />
                       <Route path="password" element={<PasswordChange />} />
                       <Route
                         index
@@ -248,6 +250,12 @@ const AdminNav = () => {
         LLM Models
       </Link>
       <Link
+        to="/admin/system-config"
+        className="text-[#f2efe3] hover:text-[#ffcc33] transition-colors font-medium relative after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-[#ffcc33] after:transition-all hover:after:w-full"
+      >
+        System Config
+      </Link>
+      <Link
         to="/admin/password"
         className="text-[#f2efe3] hover:text-[#ffcc33] transition-colors font-medium relative after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-[#ffcc33] after:transition-all hover:after:w-full"
       >
@@ -291,6 +299,13 @@ const AdminMobileNav = ({
         onClick={closeMobileMenu}
       >
         LLM Models
+      </Link>
+      <Link
+        to="/admin/system-config"
+        className="text-[#f2efe3] hover:text-[#ffcc33] transition-colors font-medium py-2"
+        onClick={closeMobileMenu}
+      >
+        System Config
       </Link>
       <Link
         to="/admin/password"

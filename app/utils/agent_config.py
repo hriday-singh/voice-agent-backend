@@ -218,7 +218,8 @@ def list_available_agents(include_disabled: bool = False) -> List[Dict[str, Any]
 def get_language_codes() -> Dict[str, str]:
     """Get language code mapping"""
     with get_db() as session:
-        return get_global_config_from_db(session, "language_codes", {})
+        from app.models.models import get_global_config
+        return get_global_config(session, "language_codes") or {}
 
 def get_agent_types() -> List[str]:
     """
@@ -246,7 +247,7 @@ def get_agent_languages(agent_id: str) -> Dict[str, Any]:
         agent_id: ID of the agent
         
     Returns:
-        Dict containing language settings or empty dict if not found
+        Dict containing language settings with "primary" key having the primary language code
     """
     agent_config = get_agent_by_id(agent_id)
     if not agent_config:
@@ -256,7 +257,7 @@ def get_agent_languages(agent_id: str) -> Dict[str, Any]:
     if isinstance(languages, str):
         try:
             import json
-            return json.loads(languages)
+            languages = json.loads(languages)
         except json.JSONDecodeError:
             logger.error(f"Invalid JSON in languages for agent {agent_id}")
             return {}
@@ -581,4 +582,62 @@ def create_agent_config(config_data: Dict[str, Any]) -> Optional[int]:
             
     except Exception as e:
         logger.error(f"Error creating agent configuration: {str(e)}")
-        return None 
+        return None
+
+def get_voice_config() -> Dict[str, Dict[str, str]]:
+    """
+    Get voice configuration from the database
+    
+    Returns:
+        Dict containing voice configuration for each language with language_code and voice_name
+    """
+    with get_db() as session:
+        voice_config = get_global_config_from_db(session, "voice_config", {})
+        
+        # If voice_config is empty, provide default
+        if not voice_config:
+            logger.info("No voice configuration found, providing default")
+            voice_config = {
+                "English": {
+                    "language_code": "en-IN",
+                    "voice_name": "en-IN-Wavenet-E"
+                },
+                "Hindi": {
+                    "language_code": "hi-IN",
+                    "voice_name": "hi-IN-Wavenet-E"
+                },
+                "Telugu": {
+                    "language_code": "te-IN",
+                    "voice_name": "te-IN-Standard-A"
+                },
+                "Tamil": {
+                    "language_code": "ta-IN",
+                    "voice_name": "ta-IN-Wavenet-A"
+                },
+                "Bengali": {
+                    "language_code": "bn-IN",
+                    "voice_name": "bn-IN-Wavenet-C"
+                }
+            }
+            
+        return voice_config
+
+def update_voice_config(voice_config: Dict[str, Dict[str, str]]) -> bool:
+    """
+    Update voice configuration in the database
+    
+    Args:
+        voice_config: Dict containing voice configuration for each language
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    with get_db() as session:
+        try:
+            from app.models.models import set_global_config
+            set_global_config(session, "voice_config", voice_config)
+            return True
+        except Exception as e:
+            logger.error(f"Error updating voice configuration: {str(e)}")
+            session.rollback()
+            return False 

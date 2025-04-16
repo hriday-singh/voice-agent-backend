@@ -42,7 +42,6 @@ class AgentConfig(SQLModel, table=True):
     startup_message: str
     system_prompt: str = Field(default="")
     enabled: bool = Field(default=True)
-    voice_name: str
     is_outbound: bool = Field(default=False)
     languages: str = Field(default="{}", sa_type=JSON)
     speech_context: str = Field(default="[]", sa_type=JSON)
@@ -336,7 +335,6 @@ def get_agent_config_as_dict(session: Session, agent_type: str) -> Optional[Dict
         "startup_message": agent_config.startup_message,
         "system_prompt": agent_config.system_prompt,
         "enabled": agent_config.enabled,
-        "voice_name": agent_config.voice_name,
         "is_outbound": agent_config.is_outbound,
         "languages": agent_config.get_languages(),
         "speech_context": agent_config.get_speech_context(),
@@ -477,12 +475,15 @@ def get_agent_system_prompt(session: Session, agent_type: str) -> Optional[str]:
     return agent_config.system_prompt
 
 # Global configuration functions
-def set_global_config(session: Session, key: str, value: Dict[str, Any]) -> int:
+def set_global_config(session: Session, key: str, value: Any, description: str = "") -> int:
     """Set a global configuration value"""
     existing_config = session.exec(select(GlobalConfig).where(GlobalConfig.config_key == key)).first()
     
-    # Convert dict to JSON string
-    value_json = json.dumps(value)
+    # Convert value to JSON string if it's not already a string
+    if not isinstance(value, str):
+        value_json = json.dumps(value)
+    else:
+        value_json = value
     
     if existing_config:
         existing_config.config_value = value_json
@@ -616,7 +617,6 @@ def agent_config_to_response(agent_config: AgentConfig) -> Dict[str, Any]:
         "startup_message": agent_config.startup_message,
         "system_prompt": agent_config.system_prompt,
         "enabled": agent_config.enabled,
-        "voice_name": agent_config.voice_name,
         "is_outbound": agent_config.is_outbound,
         "languages": agent_config.get_languages(),
         "speech_context": agent_config.get_speech_context(),
@@ -640,7 +640,6 @@ def agent_configs_to_responses(configs: List[AgentConfig]) -> List[Dict[str, Any
             "startup_message": config.startup_message,
             "system_prompt": config.system_prompt,
             "enabled": config.enabled,
-            "voice_name": config.voice_name,
             "is_outbound": config.is_outbound,
             "languages": config.get_languages(),
             "speech_context": config.get_speech_context(),

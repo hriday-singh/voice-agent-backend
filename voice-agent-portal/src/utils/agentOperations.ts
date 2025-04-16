@@ -20,7 +20,6 @@ export const createNewAgent = async (
       "<speak>Welcome to our service. How may I help you today?</speak>",
     system_prompt: agentData.system_prompt || "You are a helpful assistant...",
     enabled: agentData.enabled !== undefined ? agentData.enabled : true,
-    voice_name: agentData.voice_name || "en-IN-Wavenet-E",
     can_interrupt: agentData.can_interrupt || false,
     is_outbound: agentData.is_outbound || false,
     languages: {

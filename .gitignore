@@ -94,3 +94,5 @@ secure_db.py
 rebuild_db.py
 test_langgraph.py
 migrate_to_supabase.py
+test_transcription.py
+texttospeech-key.json

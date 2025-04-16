@@ -9,6 +9,7 @@ import "./VoiceAgent.css";
 import { IoArrowBack } from "react-icons/io5";
 import { IconWrapper } from "./IconWrapper";
 import { accessVoiceAgent } from "../../services/api";
+import { getLanguageName } from "../../utils/languageUtils";
 
 interface Agent {
   id: string;
@@ -249,7 +250,7 @@ const VoiceAgentPage: React.FC = () => {
                         Main Language:
                       </span>
                       <span className="text-[#e7e2d3] text-sm px-2 py-0.5 bg-[#382e1e] rounded">
-                        {agentAccessInfo.primary_language}
+                        {getLanguageName(agentAccessInfo.primary_language)}
                       </span>
                     </div>
                     <div>
@@ -268,7 +269,7 @@ const VoiceAgentPage: React.FC = () => {
                                 key={index}
                                 className="text-[#a39e8f] text-xs px-2 py-0.5 bg-[#382e1e] rounded"
                               >
-                                {lang}
+                                {getLanguageName(lang)}
                               </span>
                             ))}
                         </div>

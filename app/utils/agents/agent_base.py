@@ -1,5 +1,5 @@
 from app.utils.speech_service import get_stt_model, get_tts_model
-from app.utils.agent_config import get_agent_by_id, get_agent_error_messages
+from app.utils.agent_config import get_agent_by_id, get_agent_error_messages, get_agent_languages
 from app.utils.langgraph import get_agent_response
 from decouple import config
 from fastrtc import ReplyOnPause, AlgoOptions, Stream, SileroVadOptions
@@ -17,6 +17,7 @@ class VoiceAgent:
         self.agent_type = agent_type
         self.agent_config = get_agent_by_id(agent_type)
         self.error_messages = get_agent_error_messages(agent_type)
+        self.primary_language = get_agent_languages(agent_type).get("primary", "en-IN")
         
         # Initialize models
         self.stt_model = get_stt_model()
@@ -24,10 +25,9 @@ class VoiceAgent:
         
         # Set agent type for STT model
         self.stt_model.set_agent_type(agent_type)
-        
-        # Set voice name if specified in config
-        if self.agent_config and "voice_name" in self.agent_config:
-            self.tts_model.set_voice_name(self.agent_config["voice_name"])
+
+        # Set language for TTS model instead of voice name
+        self.tts_model.set_language(self.primary_language)
         
         # Store conversation state
         self.conversation_id = None
@@ -44,9 +44,9 @@ class VoiceAgent:
         
         # Configure audio options
         self.options = AlgoOptions(
-            audio_chunk_duration=1.5,
+            audio_chunk_duration=0.8,
             started_talking_threshold=0.25,
-            speech_threshold=0.15,
+            speech_threshold=0.1,
         )
         
         self.rtc_configuration = {
@@ -68,9 +68,9 @@ class VoiceAgent:
                 self.process_audio, 
                 algo_options=self.options, 
                 model_options=SileroVadOptions(
-                    threshold=0.95,
+                    threshold=0.90,
                     min_silence_duration_ms=1800,
-                    speech_pad_ms=200
+                    speech_pad_ms=150
                 ),
                 startup_fn=self.startup,
                 input_sample_rate=16000

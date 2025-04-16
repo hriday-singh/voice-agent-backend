@@ -16,131 +16,13 @@ import pydub
 from google.cloud import texttospeech
 from google.cloud import speech
 import logging
-from app.utils.agent_config import get_agent_languages, get_agent_speech_context
+from app.utils.agent_config import get_agent_languages, get_agent_speech_context, get_voice_config, get_language_codes
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
-
-# Global pronunciation dictionary for common terms
-# This can be imported and used throughout the application
-PRONUNCIATION_DICTIONARY = {
-    # Hospital names
-    "Yashodha": {
-        "pronunciation": "jəˈʃoːd̪ʰaː",
-        "alphabet": "ipa"
-    },
-    "Yashoda": {
-        "pronunciation": "jəˈʃoːd̪ʰaː",
-        "alphabet": "ipa"
-    },
-    "YASHODA": {
-        "pronunciation": "jəˈʃoːd̪ʰaː",
-        "alphabet": "ipa"
-    },
-    "yashodha": {
-        "pronunciation": "jəˈʃoːd̪ʰaː",
-        "alphabet": "ipa"
-    },
-    "yashoda": {
-        "pronunciation": "jəˈʃoːd̪ʰaː",
-        "alphabet": "ipa"
-    },
-    
-    # Medical terms
-    "pneumonia": {
-        "pronunciation": "nuːˈmoʊniə",
-        "alphabet": "ipa"
-    },
-    "myocardial infarction": {
-        "pronunciation": "maɪəˈkɑɹdiəl ɪnˈfɑɹkʃən",
-        "alphabet": "ipa"
-    },
-    "fever": {
-        "pronunciation": "ˈfiːvər",
-        "alphabet": "ipa"
-    },
-    "headache": {
-        "pronunciation": "ˈhɛdeɪk",
-        "alphabet": "ipa"
-    },
-    
-    # Place names
-    "Chennai": {
-        "pronunciation": "ˈtʃɛnaj",
-        "alphabet": "ipa"
-    },
-    "Delhi": {
-        "pronunciation": "ˈd̪ɛli",
-        "alphabet": "ipa"
-    },
-    
-    # Language names
-    "Tamil": {
-        "pronunciation": "ˈt̪ɑːmɪl",
-        "alphabet": "ipa"
-    },
-    "Tamil Nadu": {
-        "pronunciation": "ˈt̪ɑːmɪl ˈnɑːɖu",
-        "alphabet": "ipa"
-    },
-    "Hindi": {
-        "pronunciation": "ˈhɪndi",
-        "alphabet": "ipa"
-    },
-    
-    # Technical terms
-    "SQL": {
-        "pronunciation": "ˈɛs kjuː ˈɛl",
-        "alphabet": "ipa"
-    },
-    "GUID": {
-        "pronunciation": "ˈɡuːɪd",
-        "alphabet": "ipa"
-    },
-    "PostgreSQL": {
-        "pronunciation": "ˈpoʊstɡrɛs ˈɛs kjuː ˈɛl",
-        "alphabet": "ipa"
-    }
-}
-
-# Tamil dictionary
-TAMIL_PRONUNCIATIONS = {
-    "காய்ச்சல்": {
-        "pronunciation": "kaːjtːʃal",
-        "alphabet": "ipa"
-    },
-    "தலைவலி": {
-        "pronunciation": "t̪alaɪvali",
-        "alphabet": "ipa"
-    },
-    "மருத்துவமனைக்கு": {
-        "pronunciation": "maɾuθθuvamaneːkku",
-        "alphabet": "ipa"
-    },
-    "யசோதா": {  # Yashodha in Tamil
-        "pronunciation": "jəˈʃoːd̪ʰaː",
-        "alphabet": "ipa"
-    }
-}
-
-# Hindi dictionary
-HINDI_PRONUNCIATIONS = {
-    "बुखार": {
-        "pronunciation": "buˈkʰaːr",
-        "alphabet": "ipa"
-    },
-    "सिरदर्द": {
-        "pronunciation": "sirˈdərd",
-        "alphabet": "ipa"
-    },
-    "यशोधा": {  # Yashodha in Hindi
-        "pronunciation": "jəˈʃoːd̪ʰaː",
-        "alphabet": "ipa"
-    }
-}
 
 class BaseSTT(Protocol):
     def transcribe(self, audio_file: BinaryIO, agent_type: Optional[str] = None) -> tuple[str, str]:
@@ -154,10 +36,6 @@ class BaseTTS(Protocol):
     """Base protocol for text-to-speech providers"""
     def set_language(self, lang: str) -> None:
         """Set the language for TTS"""
-        ...
-        
-    def set_voice_name(self, voice_name: str) -> None:
-        """Set specific voice name (optional)"""
         ...
 
     def synthesize(self, text: str) -> bytes:
@@ -174,10 +52,6 @@ class TTSProvider(Protocol):
     """Protocol for text-to-speech providers"""
     def set_language(self, lang: str) -> None:
         """Set the language for TTS"""
-        ...
-        
-    def set_voice_name(self, voice_name: str) -> None:
-        """Set specific voice name"""
         ...
 
     def generate_audio(self, text: str) -> Generator[Tuple[int, np.ndarray], None, None]:
@@ -312,12 +186,11 @@ class TTSWrapper:
             self.audio_proc = AudioProcessor()
 
     def set_language(self, lang: str) -> None:
+        """Set the language for TTS
+        Args:
+            lang: Language code (BCP-47 format, e.g., 'en-IN', 'hi-IN')
+        """
         self.provider.set_language(lang)
-        
-    def set_voice_name(self, voice_name: str) -> None:
-        """Set a specific voice name if provider supports it"""
-        if hasattr(self.provider, 'set_voice_name'):
-            self.provider.set_voice_name(voice_name)
 
     def generate_audio(self, text: str) -> Generator[Tuple[int, np.ndarray], None, None]:
         # Get audio data from TTS
@@ -380,13 +253,17 @@ class ElevenLabsTTS:
             }
         }
     
-    def set_language(self, lang: str) -> None:
+    def set_language(self, language_code: str) -> None:
         """Set the language for TTS
         Args:
-            lang: Language code ('hindi', 'english', or 'tamil')
+            language_code: BCP-47 language code (e.g., 'en-IN', 'hi-IN')
         """
-        if lang in self.voice_config:
-            self.current_language = lang
+        if language_code in self.language_code_map:
+            self.current_language_code = language_code
+        else:
+            # Default to English if language code not found
+            logger.warning(f"Language code {language_code} not found in ElevenLabs configuration, defaulting to en-IN")
+            self.current_language_code = 'en-IN'
     
     def synthesize(self, text: str) -> bytes:
         """Convert text to audio using ElevenLabs API
@@ -400,14 +277,14 @@ class ElevenLabsTTS:
                 return b""
             
             # Special handling for Yashoda pronunciation in English
-            if self.current_language == 'english':
+            if self.current_language_code.startswith('en-'):
                 # Direct text substitution without SSML tags - use phonetic spelling
                 text = re.sub(r'\bYashoda\b', 'ya-show-dha', text, flags=re.IGNORECASE)
                 text = re.sub(r'\bYASHODA\b', 'ya-show-dha', text)
                 text = re.sub(r'\bYashodha\b', 'ya-show-dha', text, flags=re.IGNORECASE)
             
             # Get voice configuration for current language
-            voice_config = self.voice_config.get(self.current_language, self.voice_config['english'])
+            voice_config = self.language_code_map.get(self.current_language_code, self.language_code_map['en-IN'])
             
             # Configure voice settings
             voice_settings = VoiceSettings(
@@ -478,37 +355,19 @@ class GoogleTTS:
             raise
         
         # Initialize with English as default
-        self.current_language = 'english'
-        self.voice_name = None  # Custom voice name if specified
+        self.current_language_code = 'en-IN'
         
-        # Voice configurations for different languages
-        self.voice_config = {
-            'hindi': {
-                'language_code': 'hi-IN',
-                'name': 'hi-IN-Wavenet-E',  # Female voice
-                'ssml_gender': texttospeech.SsmlVoiceGender.FEMALE
-            },
-            'english': {
-                'language_code': 'en-IN',
-                'name': 'en-IN-Wavenet-E',  # Female voice
-                'ssml_gender': texttospeech.SsmlVoiceGender.FEMALE
-            },
-            'tamil': {
-                'language_code': 'ta-IN',
-                'name': 'ta-IN-Wavenet-A',  # Female voice
-                'ssml_gender': texttospeech.SsmlVoiceGender.FEMALE
-            },
-            'telugu': {
-                'language_code': 'te-IN',
-                'name': 'te-IN-Standard-A',  # Female voice
-                'ssml_gender': texttospeech.SsmlVoiceGender.FEMALE
-            },
-            'bengali': {
-                'language_code': 'bn-IN',
-                'name': 'bn-IN-Wavenet-C',  # Female voice
-                'ssml_gender': texttospeech.SsmlVoiceGender.FEMALE
-            }
-        }
+        # Get voice configurations from database using our helper function
+        self.voice_config_db = get_voice_config()
+        
+        # Create language code to configuration mapping
+        self.language_code_map = {}
+        for lang_name, config in self.voice_config_db.items():
+            if isinstance(config, dict) and 'language_code' in config:
+                self.language_code_map[config['language_code']] = {
+                    'language_code': config['language_code'],
+                    'voice_name': config.get('voice_name')
+                }       
         
         # Audio configuration optimized for telephony
         self.audio_config = texttospeech.AudioConfig(
@@ -520,20 +379,17 @@ class GoogleTTS:
             volume_gain_db=2.0
         )
     
-    def set_language(self, lang: str) -> None:
-        """Set the language for TTS
+    def set_language(self, language_code: str) -> None:
+        """Set the language for TTS using language code
         Args:
-            lang: Language code ('hindi', 'english', 'tamil', or 'telugu')
+            language_code: BCP-47 language code (e.g., 'en-IN', 'hi-IN')
         """
-        if lang in self.voice_config:
-            self.current_language = lang
-    
-    def set_voice_name(self, voice_name: str) -> None:
-        """Set a specific voice name to use
-        Args:
-            voice_name: Google Cloud TTS voice name (e.g. 'en-IN-Wavenet-E')
-        """
-        self.voice_name = voice_name
+        if language_code in self.language_code_map:
+            self.current_language_code = language_code
+        else:
+            # Default to English if language code not found
+            logger.warning(f"Language code {language_code} not found in configuration, defaulting to en-IN")
+            self.current_language_code = 'en-IN'
     
     def synthesize(self, ssml_text: str) -> bytes:
         """Convert text to audio using Google Cloud TTS
@@ -546,16 +402,16 @@ class GoogleTTS:
             if not ssml_text.strip():  # Check if text is empty or whitespace
                 return b""            
             
-            # Get voice configuration for current language
-            voice_config = self.voice_config.get(self.current_language, self.voice_config['hindi'])
+            # Get voice configuration for current language code
+            voice_config = self.language_code_map.get(self.current_language_code, self.language_code_map.get('en-IN'))
             
             synthesis_input = texttospeech.SynthesisInput(ssml=ssml_text)
 
             # Build the voice request
             voice = texttospeech.VoiceSelectionParams(
                 language_code=voice_config['language_code'],
-                name=self.voice_name or voice_config['name'],  # Use custom voice name if set
-                ssml_gender=voice_config['ssml_gender']
+                name=voice_config['voice_name'],  # Use voice name from configuration
+                ssml_gender=texttospeech.SsmlVoiceGender.FEMALE # Hardcoded to female voice
             )
 
             try:
@@ -724,13 +580,7 @@ class GoogleSTT:
                 )
             
             # Map our language format to Google BCP-47 codes
-            self.language_map = {
-                'english': 'en-IN',
-                'hindi': 'hi-IN',
-                'telugu': 'te-IN',
-                'tamil': 'ta-IN',
-                'bengali': 'bn-IN'
-            }
+            self.language_map = get_language_codes()
             
             # Reverse mapping for detection
             self.reverse_language_map = {v: k for k, v in self.language_map.items()}
