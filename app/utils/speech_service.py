@@ -677,7 +677,7 @@ class GoogleSTT:
             
             if not response.results:
                 logger.error("No results from Google STT")
-                return "", "unknown"
+                return ""
             
             # Get the transcript from the first result
             transcript = response.results[0].alternatives[0].transcript
