@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { AGENT_ENDPOINTS } from "../../config/api";
 import api from "../../services/api";
-import { HiOutlineChat } from "react-icons/hi";
+import { HiOutlineChat, HiOutlineShare } from "react-icons/hi";
 import { IconWrapper } from "./IconWrapper";
 import { useNavigate } from "react-router-dom";
 import AnimatedLogo from "../Common/AnimatedLogo";
 import { getLanguageName } from "../../utils/languageUtils";
+import { generateDirectAgentLink } from "../../utils/linkUtils";
 
 interface Agent {
   id: string;
@@ -37,6 +38,7 @@ const AgentSelector: React.FC<AgentSelectorProps> = ({
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [copiedAgent, setCopiedAgent] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -72,6 +74,23 @@ const AgentSelector: React.FC<AgentSelectorProps> = ({
     } catch (err: any) {
       setError("Credits exhausted. Please contact hello@caw.tech");
     }
+  };
+
+  const handleShareAgent = (e: React.MouseEvent, agentId: string) => {
+    e.stopPropagation(); // Prevent triggering the card click
+    const link = generateDirectAgentLink(agentId);
+
+    // Copy to clipboard
+    navigator.clipboard
+      .writeText(link)
+      .then(() => {
+        // Show copied message
+        setCopiedAgent(agentId);
+        setTimeout(() => setCopiedAgent(null), 2000);
+      })
+      .catch((err) => {
+        console.error("Failed to copy link: ", err);
+      });
   };
 
   if (loading) {
@@ -175,9 +194,23 @@ const AgentSelector: React.FC<AgentSelectorProps> = ({
               </div>
 
               <div className="flex justify-between items-center mt-4 pt-4 border-t border-[#e7e2d3]">
-                <span className="text-xs font-medium text-[#6c6c6c] px-2 py-1 bg-[#f2efe3] rounded-full">
-                  {agent.id}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-[#6c6c6c] px-2 py-1 bg-[#f2efe3] rounded-full">
+                    {agent.id}
+                  </span>
+                  <button
+                    onClick={(e) => handleShareAgent(e, agent.id)}
+                    className="p-1 text-gray-500 hover:text-[#ffcc33] transition-colors"
+                    title="Share direct link to this agent"
+                  >
+                    <IconWrapper icon={HiOutlineShare} size={16} />
+                  </button>
+                  {copiedAgent === agent.id && (
+                    <span className="absolute left-1/2 transform -translate-x-1/2 -translate-y-8 bg-gray-800 text-white text-xs px-2 py-1 rounded">
+                      Link copied!
+                    </span>
+                  )}
+                </div>
                 <button
                   onClick={() => handleAgentSelect(agent)}
                   className="px-4 py-2 bg-[#ffcc33] text-[#140d0c] rounded hover:bg-[#ffcc33]/90 transition-colors font-medium"

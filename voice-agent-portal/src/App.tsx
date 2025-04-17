@@ -6,6 +6,8 @@ import {
   Navigate,
   Link,
   useLocation,
+  useSearchParams,
+  useNavigate,
 } from "react-router-dom";
 import AdminLogin from "./components/Auth/AdminLogin";
 import OTPLogin from "./components/Auth/OTPLogin";
@@ -152,7 +154,7 @@ const App: React.FC = () => {
                 isLoggedIn ? (
                   <Navigate to="/" replace />
                 ) : (
-                  <OTPLogin onLoginSuccess={handleLoginSuccess} />
+                  <LoginRedirect onLoginSuccess={handleLoginSuccess} />
                 )
               }
             />
@@ -218,6 +220,27 @@ const App: React.FC = () => {
       </div>
     </Router>
   );
+};
+
+// Component to handle login redirection based on URL parameters
+const LoginRedirect: React.FC<{ onLoginSuccess: () => void }> = ({
+  onLoginSuccess,
+}) => {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const directAgent = searchParams.get("agent");
+
+  const handleSuccessfulLogin = () => {
+    onLoginSuccess();
+    // If directAgent parameter exists, navigate to that agent
+    if (directAgent) {
+      navigate(`/agent/${directAgent}`);
+    } else {
+      navigate("/");
+    }
+  };
+
+  return <OTPLogin onLoginSuccess={handleSuccessfulLogin} />;
 };
 
 const AdminNav = () => {
