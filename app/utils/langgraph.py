@@ -1,8 +1,9 @@
 import os
-from typing import List, TypedDict, Dict
+from typing import List, TypedDict, Dict, Annotated
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableConfig
+from langgraph.graph.message import add_messages
 from langgraph.graph import StateGraph, END, START
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_openai import ChatOpenAI
@@ -16,7 +17,7 @@ logger.setLevel(logging.INFO)
 
 # Simple state definition
 class AgentState(TypedDict):
-    messages: List[BaseMessage]
+    messages: Annotated[list, add_messages]
 
 # Basic agent configuration
 class AgentConfig(TypedDict):
@@ -161,16 +162,15 @@ def get_agent_response(agent_id: str, user_input: str, conversation_id: str) -> 
     try:
         # Run the graph
         output_state = graph.invoke(input_messages, config)
-       
+
         # Extract the AI message
         if output_state and "messages" in output_state and output_state["messages"]:
             ai_message = output_state["messages"][-1]
             if hasattr(ai_message, "content"):
                 response_content = ai_message.content
-                # Format as SSML if needed
                 ssml_formatted_response = ensure_ssml_format(response_content)
                 return ssml_formatted_response
-        
+            
         return "<speak>No response generated.</speak>"
     except Exception as e:
         return f"<speak>Error: {str(e)}</speak>"
